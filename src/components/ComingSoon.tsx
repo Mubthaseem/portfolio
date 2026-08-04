@@ -5,7 +5,7 @@ import {
   Layers, Activity, ShieldCheck, Download, Tv, Utensils, ChevronRight, Zap, Radio, X
 } from 'lucide-react';
 import PortraitReveal from './PortraitReveal';
-import AvatarGifCanvas from './AvatarGifCanvas';
+import AvatarScrubber from './AvatarScrubber';
 
 interface ComingSoonProps {
   isVisible: boolean;
@@ -271,22 +271,12 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         />
       </div>
 
-      {/* STICKY FIXED AVATAR GIF CANVAS SCRUBBER — syncs frame directly with scroll & aligned with portrait */}
-      <div 
-        className="fixed inset-0 w-full h-full z-20 pointer-events-none"
-        style={{
-          opacity: gifOpacity,
-          transition: 'opacity 300ms ease-out',
-          willChange: 'opacity, transform',
-          transform: 'translate3d(0,0,0)'
-        }}
-      >
-        <AvatarGifCanvas
-          scrollProgress={gifScrollProgress}
-          opacity={gifOpacity}
-          className="w-full h-full"
-        />
-      </div>
+      {/* STICKY FIXED AVATAR SCRUBBER — Hardware GPU accelerated video seeking (15MB RAM, mobile safe) */}
+      <AvatarScrubber
+        scrollProgress={gifScrollProgress}
+        opacity={gifOpacity}
+        className="z-20"
+      />
 
       {/* FIXED TOP HEADER & NAVIGATION OS BAR */}
       <div className="fixed top-0 left-0 w-full z-40 p-3 sm:p-6 md:p-10 flex flex-col sm:flex-row gap-2 sm:gap-0 justify-between items-start sm:items-center pointer-events-none bg-gradient-to-b from-black/90 via-black/40 to-transparent">
