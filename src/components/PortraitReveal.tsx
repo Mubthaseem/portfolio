@@ -159,6 +159,23 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       
+      updateScannerPosition(x, y, rect.width, rect.height);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const canvasEl = canvasRef.current;
+      if (!canvasEl) return;
+
+      const touch = e.touches[0];
+      const rect = canvasEl.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      updateScannerPosition(x, y, rect.width, rect.height);
+    };
+
+    const updateScannerPosition = (x: number, y: number, width: number, height: number) => {
       mouseRef.current.targetX = x;
       mouseRef.current.targetY = y;
 
@@ -175,8 +192,8 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
         });
       }
 
-      const cx = rect.width / 2;
-      const cy = rect.height / 2;
+      const cx = width / 2;
+      const cy = height / 2;
       parallaxRef.current.targetX = (x - cx) / cx;
       parallaxRef.current.targetY = (y - cy) / cy;
     };
@@ -198,6 +215,8 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
     };
 
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchstart', handleTouchMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('mouseleave', handleMouseLeaveWindow);
 
     let animFrameId: number;
@@ -423,6 +442,8 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouchMove);
+      window.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('mouseleave', handleMouseLeaveWindow);
       cancelAnimationFrame(animFrameId);
     };
