@@ -147,23 +147,30 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
   const [activeProjectModal, setActiveProjectModal] = useState<number | null>(null);
   const [connectionEstablished, setConnectionEstablished] = useState(false);
 
+  const [scrollProgress, setScrollProgress] = useState(0);
   const scrollPaneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
-      const scrollPos = scrollPaneRef.current?.scrollTop || 0;
+      const pane = scrollPaneRef.current;
+      if (pane) {
+        const maxScroll = pane.scrollHeight - pane.clientHeight;
+        const currentScroll = pane.scrollTop;
+        const progress = maxScroll > 0 ? Math.min(1, Math.max(0, currentScroll / maxScroll)) : 0;
+        setScrollProgress(progress);
 
-      sections.forEach((sec) => {
-        const el = document.getElementById(sec);
-        if (el) {
-          const top = el.offsetTop - 220;
-          const height = el.offsetHeight;
-          if (scrollPos >= top && scrollPos < top + height) {
-            setActiveNav(sec);
+        const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
+        sections.forEach((sec) => {
+          const el = document.getElementById(sec);
+          if (el) {
+            const top = el.offsetTop - 220;
+            const height = el.offsetHeight;
+            if (currentScroll >= top && currentScroll < top + height) {
+              setActiveNav(sec);
+            }
           }
-        }
-      });
+        });
+      }
     };
 
     const pane = scrollPaneRef.current;
@@ -204,7 +211,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
     >
       {/* FIXED LEFT SIDE & BACKGROUND: Portrait + AI Canvas */}
       <div className="fixed inset-0 w-full h-full z-10 pointer-events-none md:pointer-events-auto">
-        <PortraitReveal />
+        <PortraitReveal scrollProgress={scrollProgress} />
       </div>
 
       {/* FIXED TOP HEADER & NAVIGATION OS BAR */}

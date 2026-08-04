@@ -3,6 +3,7 @@ import gsap from 'gsap';
 
 interface PortraitRevealProps {
   onHoverStateChange?: (isHovered: boolean) => void;
+  scrollProgress?: number;
 }
 
 interface Particle {
@@ -17,7 +18,7 @@ interface Particle {
   isSpark: boolean;
 }
 
-export default function PortraitReveal({ onHoverStateChange }: PortraitRevealProps) {
+export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 }: PortraitRevealProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -33,14 +34,19 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
   const parallaxRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef(0);
-  const transformProgressRef = useRef(0); // 0 = Scanner Hover Mode, 1 = Full AI Mode
-  const introProgressRef = useRef(0); // 0 = Intro Start, 1 = Intro Complete
+  const transformProgressRef = useRef(0); // 0 = ch1, 1 = ch2
+  const introProgressRef = useRef(0);
+  const scrollProgressRef = useRef(0);
 
   const maxParticles = 110;
   const SCANNER_RADIUS = 95;
 
   useEffect(() => {
-    // Preload Images
+    scrollProgressRef.current = scrollProgress;
+  }, [scrollProgress]);
+
+  useEffect(() => {
+    // Preload 1080p Images
     const img1 = new Image();
     const img2 = new Image();
 
@@ -49,7 +55,7 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
       loadedCount++;
       if (loadedCount === 2) {
         setImagesLoaded(true);
-        // Trigger high-tech intro laser scan animation
+        // Trigger intro laser scan animation
         gsap.fromTo(
           introProgressRef,
           { current: 0 },
@@ -68,12 +74,12 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
 
     img1.onload = onImageLoaded;
     img1.onerror = onImageError;
-    img1.src = '/ch1.png'; // Base human portrait
+    img1.src = '/ch1.png';
     img1Ref.current = img1;
 
     img2.onload = onImageLoaded;
     img2.onerror = onImageError;
-    img2.src = '/ch2.png'; // Futuristic AI portrait
+    img2.src = '/ch2.png';
     img2Ref.current = img2;
 
     const particles: Particle[] = [];
@@ -162,19 +168,6 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
       updateScannerPosition(x, y, rect.width, rect.height);
     };
 
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 0) return;
-      const canvasEl = canvasRef.current;
-      if (!canvasEl) return;
-
-      const touch = e.touches[0];
-      const rect = canvasEl.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-
-      updateScannerPosition(x, y, rect.width, rect.height);
-    };
-
     const updateScannerPosition = (x: number, y: number, width: number, height: number) => {
       mouseRef.current.targetX = x;
       mouseRef.current.targetY = y;
@@ -222,8 +215,9 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
     const tick = () => {
       timeRef.current += 0.03;
 
-      const targetProgress = isLockedAI ? 1 : 0;
-      transformProgressRef.current += (targetProgress - transformProgressRef.current) * 0.08;
+      // Transformation progress combines scroll position AND click lock
+      const targetProgress = isLockedAI ? 1 : Math.min(1, Math.max(0, scrollProgressRef.current));
+      transformProgressRef.current += (targetProgress - transformProgressRef.current) * 0.12;
       const fullProgress = transformProgressRef.current;
       const introProgress = introProgressRef.current;
       
@@ -245,16 +239,21 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
       const imgW = img1Ref.current?.naturalWidth || 1451;
       const imgH = img1Ref.current?.naturalHeight || 1084;
       const baseAspect = imgW / imgH;
+
+      // Position adjustment for Desktop vs Mobile
       let drawH = isMobile ? h * 0.85 : h;
       let drawW = drawH * baseAspect;
-      let drawX = isMobile ? (w - drawW) / 2 : 0;
-      let drawY = isMobile ? h - drawH : 0;
+      
+      // On desktop: position centered in left 45% region so face stays aligned beside text column
+      let drawX = isMobile ? (w - drawW) / 2 : (w * 0.45 - drawW) / 2;
+      if (!isMobile && drawX < 0) drawX = 0; // Keep aligned to left if aspect ratio is wide
+      let drawY = isMobile ? h - drawH : (h - drawH) / 2;
 
       // Scale down from 108% to 100% during intro entrance
       const introScale = 1.08 - 0.08 * introProgress;
       const breathe = (1.0 + Math.sin(timeRef.current * 0.6) * 0.004) * introScale;
 
-      // 1. Render Base Human Portrait (ch1.png) - Fades in and scales during intro
+      // 1. Render Base Human Portrait (ch1.png) - Fades out as scroll progress increases to 1
       if (img1Ref.current && fullProgress < 0.99) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, 1.0 - fullProgress) * introProgress;
@@ -271,7 +270,7 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
           const sliceShift = (Math.random() - 0.5) * 12;
           ctx.drawImage(
             img1Ref.current, 
-            0, (sliceY / drawH) * 1792, 2400, (sliceH / drawH) * 1792, 
+            0, (sliceY / drawH) * 1084, 1451, (sliceH / drawH) * 1084, 
             drawX + offsetDx + sliceShift, drawY + sliceY + offsetDy, drawW, sliceH
           );
         }
@@ -279,12 +278,12 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
         ctx.restore();
       }
 
-      // Calculate effective reveal radius
+      // Calculate effective reveal radius (expands outward as scrollProgress increases)
       const maxDiagonal = Math.hypot(w, h);
       const effectiveRadius = springRef.current.radius + fullProgress * maxDiagonal;
       const effectiveOpacity = Math.max(springRef.current.opacity, fullProgress);
 
-      // 2. Render AI Portrait (ch2.png) inside scanner circle
+      // 2. Render AI Portrait (ch2.png) inside expanding reveal region
       if (effectiveRadius > 1 && effectiveOpacity > 0.01 && img2Ref.current) {
         const scanX = springRef.current.x;
         const scanY = springRef.current.y;
@@ -294,7 +293,7 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
         const localScanY = h / 2 + (scanY - h / 2) * invBreathe;
         const radiusInLocal = effectiveRadius * invBreathe;
 
-        // Step 2A: Erase base image (ch1.png) inside the scanner circle so it never bleeds or shows through
+        // Step 2A: Erase base image (ch1.png) inside reveal circle
         ctx.save();
         ctx.translate(w / 2, h / 2);
         ctx.scale(breathe, breathe);
@@ -306,7 +305,7 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
         ctx.fill();
         ctx.restore();
 
-        // Step 2B: Draw AI portrait (ch2.png) into the erased circular hole
+        // Step 2B: Draw AI portrait (ch2.png) into revealed region
         ctx.save();
         ctx.translate(w / 2, h / 2);
         ctx.scale(breathe, breathe);
@@ -317,7 +316,7 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
         ctx.clip();
 
         ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = Math.min(1.0, fullProgress > 0 ? fullProgress * 1.5 : 1.0);
         ctx.drawImage(img2Ref.current, drawX + offsetDx, drawY + offsetDy, drawW, drawH);
 
         // Chromatic aberration glitch effect inside scanner
@@ -440,8 +439,6 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchstart', handleTouchMove);
-      window.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('mouseleave', handleMouseLeaveWindow);
       cancelAnimationFrame(animFrameId);
     };
@@ -499,16 +496,19 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
               {isLockedAI ? 'CYBER OVERRIDE' : 'SCAN PROGRESS'}
             </span>
             <span className="text-xs font-bold text-highlight tracking-wider">
-              {isLockedAI ? '100%' : '87%'}
+              {Math.round(transformProgressRef.current * 100)}%
             </span>
           </div>
           <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-            <div className={`h-full bg-primary ${isLockedAI ? 'w-[100%]' : 'w-[87%]'} shadow-[0_0_8px_#4DA3FF] transition-all duration-500`}></div>
+            <div 
+              className="h-full bg-primary shadow-[0_0_8px_#4DA3FF] transition-all duration-300"
+              style={{ width: `${Math.round(transformProgressRef.current * 100)}%` }}
+            ></div>
           </div>
         </div>
 
         <div className="text-[7.5px] text-white/50 tracking-wider text-center pt-1 border-t border-white/10">
-          [ CLICK ANYWHERE TO {isLockedAI ? 'REVERT' : 'TRANSFORM'} ]
+          [ SCROLL OR CLICK TO TRANSFORM ]
         </div>
       </div>
 
