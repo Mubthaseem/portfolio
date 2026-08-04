@@ -35,10 +35,16 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
     if (!video || !video.duration) return;
 
     const clampedProgress = Math.min(1, Math.max(0, scrollProgress));
-    targetTimeRef.current = clampedProgress * video.duration;
+    const target = clampedProgress * video.duration;
+    targetTimeRef.current = target;
+
+    // Instant update if fast scroll or initial mount
+    if (Math.abs(video.currentTime - target) > 0.5) {
+      video.currentTime = target;
+    }
   }, [scrollProgress, isLoaded]);
 
-  // 60 FPS GPU lerp seeking loop
+  // Smooth 60 FPS GPU lerp seeking loop
   useEffect(() => {
     let active = true;
 
@@ -46,8 +52,8 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
       const video = videoRef.current;
       if (video && video.duration) {
         const diff = targetTimeRef.current - video.currentTime;
-        if (Math.abs(diff) > 0.005) {
-          video.currentTime += diff * 0.35;
+        if (Math.abs(diff) > 0.002) {
+          video.currentTime += diff * 0.4; // Instant smooth seek interpolation
         }
       }
       if (active) {
@@ -79,7 +85,6 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
           preload="auto"
           className="w-full h-full object-cover object-top mix-blend-screen"
           style={{
-            // Radial edge mask to dissolve any outer rectangular edges completely into the background
             WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
             maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)'
           }}
