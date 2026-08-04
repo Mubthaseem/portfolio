@@ -7,7 +7,7 @@ interface AvatarGifCanvasProps {
   className?: string;
 }
 
-const CACHE_NAME = 'mubthaseem-avatar-v1';
+const CACHE_NAME = 'mubthaseem-avatar-v2';
 const GIF_URL = '/avatar.gif';
 const TOTAL_EXPECTED_BYTES = 46094682; // ~46MB
 
@@ -20,15 +20,13 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
   const [loadedMB, setLoadedMB] = useState('0.0');
   const [totalMB, setTotalMB] = useState('46.0');
 
-  // IRONCLAD MOBILE GUARD: Completely block 46MB GIF fetching and frame decoding on mobile devices to prevent WebKit memory crashes
+  // Mobile device detection (specifically mobile phones/tablets, not desktop touchscreens)
   const isMobileDevice = typeof window !== 'undefined' && (
-    window.innerWidth < 768 || 
-    'ontouchstart' in window || 
+    (window.innerWidth < 768 && 'ontouchstart' in window) || 
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   );
 
   useEffect(() => {
-    // DO NOT run on mobile devices — mobile uses lightweight GPU video seeking
     if (isMobileDevice) return;
 
     let active = true;
@@ -39,9 +37,14 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match(GIF_URL);
           if (cachedResponse) {
-            setDownloadStateText('CACHED ASSET DETECTED — LOADING FROM MEMORY');
-            setDownloadProgress(100);
-            return await cachedResponse.arrayBuffer();
+            const buf = await cachedResponse.arrayBuffer();
+            if (buf && buf.byteLength > 1000000) {
+              setDownloadStateText('CACHED ASSET DETECTED — LOADING FROM MEMORY');
+              setDownloadProgress(100);
+              return buf;
+            } else {
+              await cache.delete(GIF_URL);
+            }
           }
         } catch (e) {
           console.warn("CacheStorage read error:", e);
@@ -67,13 +70,16 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
 
         xhr.onload = () => {
           if (!active) return;
-          if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.status >= 200 && xhr.status < 300 && xhr.response) {
             setDownloadProgress(100);
             setDownloadStateText('DECODING FRAME SEQUENCES...');
             
+            // Make a copy of ArrayBuffer before passing to Response to prevent detachment
+            const bufferCopy = xhr.response.slice(0);
+
             if (typeof window !== 'undefined' && 'caches' in window) {
               caches.open(CACHE_NAME).then((cache) => {
-                const response = new Response(xhr.response, {
+                const response = new Response(bufferCopy, {
                   headers: { 'Content-Type': 'image/gif' }
                 });
                 cache.put(GIF_URL, response);
@@ -98,7 +104,10 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
           const gif = parseGIF(buffer);
           const rawFrames = decompressFrames(gif, true);
 
-          if (!rawFrames || rawFrames.length === 0) return;
+          if (!rawFrames || rawFrames.length === 0) {
+            console.error("No frames decoded from GIF buffer");
+            return;
+          }
 
           const width = gif.lsd.width;
           const height = gif.lsd.height;
@@ -114,7 +123,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
 
           const processBatch = () => {
             if (!active) return;
-            const batchSize = 15;
+            const batchSize = 20;
             const end = Math.min(index + batchSize, total);
 
             for (; index < end; index++) {
@@ -151,7 +160,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
               if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
                 (window as any).requestIdleCallback(processBatch);
               } else {
-                setTimeout(processBatch, 16);
+                setTimeout(processBatch, 10);
               }
             } else {
               if (active) {
@@ -172,7 +181,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
       (window as any).requestIdleCallback(startAsyncProcess);
     } else {
-      setTimeout(startAsyncProcess, 100);
+      setTimeout(startAsyncProcess, 50);
     }
 
     return () => {
