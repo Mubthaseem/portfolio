@@ -9,44 +9,84 @@ interface AvatarGifCanvasProps {
 
 const CACHE_NAME = 'mubthaseem-avatar-v1';
 const GIF_URL = '/avatar.gif';
+const TOTAL_EXPECTED_BYTES = 46094682; // ~46MB
 
 export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className = "" }: AvatarGifCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLCanvasElement[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0); // 0 to 100
+  const [downloadStateText, setDownloadStateText] = useState('INITIALIZING ASSET FETCH...');
+  const [loadedMB, setLoadedMB] = useState('0.0');
+  const [totalMB, setTotalMB] = useState('46.0');
 
-  // Fetch & decode GIF in idle background batches on mount so it's ready without blocking main thread
+  // Real Network Download Progress Tracking + CacheStorage Integration
   useEffect(() => {
     let active = true;
 
-    const loadGifArrayBuffer = async (): Promise<ArrayBuffer> => {
-      // 1. Try reading from browser CacheStorage
+    const fetchWithProgress = async (): Promise<ArrayBuffer> => {
+      // 1. Check browser CacheStorage first for 0ms load
       if (typeof window !== 'undefined' && 'caches' in window) {
         try {
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match(GIF_URL);
           if (cachedResponse) {
+            setDownloadStateText('CACHED ASSET DETECTED — LOADING FROM MEMORY');
+            setDownloadProgress(100);
             return await cachedResponse.arrayBuffer();
           }
-          // Fetch and store into cache
-          const networkResponse = await fetch(GIF_URL);
-          if (networkResponse.ok) {
-            cache.put(GIF_URL, networkResponse.clone());
-            return await networkResponse.arrayBuffer();
-          }
         } catch (e) {
-          console.warn("CacheStorage read/write failed, falling back to fetch:", e);
+          console.warn("CacheStorage read error:", e);
         }
       }
 
-      // Fallback: standard network fetch
-      const res = await fetch(GIF_URL);
-      return await res.arrayBuffer();
+      // 2. Real XHR Download for precise byte progress
+      return new Promise<ArrayBuffer>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', GIF_URL);
+        xhr.responseType = 'arraybuffer';
+
+        xhr.onprogress = (e) => {
+          if (!active) return;
+          const total = e.lengthComputable && e.total > 0 ? e.total : TOTAL_EXPECTED_BYTES;
+          const loaded = e.loaded;
+          const percent = Math.min(99, Math.round((loaded / total) * 100));
+
+          setDownloadProgress(percent);
+          setLoadedMB((loaded / (1024 * 1024)).toFixed(1));
+          setTotalMB((total / (1024 * 1024)).toFixed(1));
+          setDownloadStateText(`DOWNLOADING AVATAR TRANSFORMATION [ ${percent}% ]`);
+        };
+
+        xhr.onload = () => {
+          if (!active) return;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setDownloadProgress(100);
+            setDownloadStateText('DECODING FRAME SEQUENCES...');
+            
+            // Save to CacheStorage asynchronously for next visit
+            if (typeof window !== 'undefined' && 'caches' in window) {
+              caches.open(CACHE_NAME).then((cache) => {
+                const response = new Response(xhr.response, {
+                  headers: { 'Content-Type': 'image/gif' }
+                });
+                cache.put(GIF_URL, response);
+              }).catch(() => {});
+            }
+
+            resolve(xhr.response as ArrayBuffer);
+          } else {
+            reject(new Error(`Fetch failed with status ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error downloading avatar.gif'));
+        xhr.send();
+      });
     };
 
-    // Use requestIdleCallback or setTimeout so fetching/decoding starts in idle time without home lag
-    const startAsyncLoad = () => {
-      loadGifArrayBuffer()
+    const startAsyncProcess = () => {
+      fetchWithProgress()
         .then((buffer) => {
           if (!active) return;
           const gif = parseGIF(buffer);
@@ -117,13 +157,16 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
 
           processBatch();
         })
-        .catch((err) => console.error("Error decoding GIF frames:", err));
+        .catch((err) => {
+          console.error("Error downloading/decoding GIF:", err);
+          setDownloadStateText('DOWNLOAD ERROR — TAP TO RETRY');
+        });
     };
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(startAsyncLoad);
+      (window as any).requestIdleCallback(startAsyncProcess);
     } else {
-      setTimeout(startAsyncLoad, 100);
+      setTimeout(startAsyncProcess, 100);
     }
 
     return () => {
@@ -131,7 +174,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
     };
   }, []);
 
-  // Main canvas render loop — aligned with PortraitReveal canvas math + cyber flicker
+  // Main canvas render loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -180,6 +223,43 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
         ref={canvasRef}
         className="w-full h-full block"
       />
+
+      {/* Cyber Real-Time Download Progress Telemetry (Displays directly over the image position while downloading) */}
+      {!loaded && (
+        <div className="fixed top-0 left-0 w-full md:w-[48%] h-full z-30 flex flex-col items-center justify-center p-6 select-none pointer-events-none">
+          <div className="bg-black/80 backdrop-blur-xl border border-primary/40 p-6 rounded-2xl max-w-sm w-full flex flex-col gap-4 shadow-[0_0_30px_rgba(77,163,255,0.25)] font-mono text-xs">
+            
+            {/* Download Status Header */}
+            <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+              <div className="flex items-center gap-2 text-primary font-bold tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                <span>[ ASSET TELEMETRY ]</span>
+              </div>
+              <span className="text-highlight font-bold">{downloadProgress}%</span>
+            </div>
+
+            {/* State Message */}
+            <p className="text-[10px] text-secondary tracking-widest uppercase">
+              {downloadStateText}
+            </p>
+
+            {/* Cyber Progress Bar */}
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden relative">
+              <div 
+                className="h-full bg-primary shadow-[0_0_10px_#4DA3FF] transition-all duration-200"
+                style={{ width: `${downloadProgress}%` }}
+              />
+            </div>
+
+            {/* Byte Counters */}
+            <div className="flex justify-between items-center text-[9px] text-secondary tracking-widest">
+              <span>BYTES: {loadedMB} MB / {totalMB} MB</span>
+              <span>RES: 1080P HD</span>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
