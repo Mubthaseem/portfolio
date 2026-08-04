@@ -66,76 +66,72 @@ export default function DecryptionEngine({ onLetterLock, onSequenceComplete }: D
 
     // 0.00s — Screen black (hidden)
     
-    // 0.80s — Random characters appear
+    // 0.30s — Random characters appear
     tl.to({}, {
-      duration: 0.8,
+      duration: 0.3,
       onComplete: () => {
         setIsVisible(true);
         // Fade in container
-        gsap.to(containerRef.current, { opacity: 1, duration: 0.4 });
+        gsap.to(containerRef.current, { opacity: 1, duration: 0.2 });
       }
     });
 
-    // Sequential locks (letters lock every 0.4 seconds)
-    // 1.20s: 'M' locks (index 0)
-    // 1.60s: 'U' locks (index 1)
-    // ...
+    // Sequential locks (letters lock 60% faster, every 0.16 seconds)
+    // 0.50s: 'M' locks (index 0)
     TARGET_WORD.split('').forEach((char, idx) => {
-      const lockTime = 1.2 + idx * 0.4;
+      const lockTime = 0.5 + idx * 0.16;
       
       tl.to({}, {
-        duration: 0.1, // spacer
+        duration: 0.05, // spacer
         onComplete: () => {
           lockLetter(idx, char);
         }
       }, lockTime);
     });
 
-    // 4.80s - all letters are locked, start full swipe scanline beam
+    // 2.10s - all letters are locked, start full swipe scanline beam
     tl.to({}, {
       onComplete: () => {
         // Trigger left-to-right scan beam
         if (scanBeamRef.current) {
           gsap.fromTo(scanBeamRef.current, 
             { left: '0%', opacity: 0.85 },
-            { left: '100%', opacity: 0, duration: 1.0, ease: 'power2.inOut' }
+            { left: '100%', opacity: 0, duration: 0.4, ease: 'power2.inOut' }
           );
         }
       }
-    }, 4.8);
+    }, 2.1);
 
-    // Drifting particles from letters (after lock until fade)
+    // Drifting particles from letters
     let particleDriftInterval: number;
     tl.to({}, {
       onComplete: () => {
-        // Periodically emit a few particles from random letters
         particleDriftInterval = window.setInterval(() => {
           const randIdx = Math.floor(Math.random() * TARGET_WORD.length);
           const el = letterRefs.current[randIdx];
           if (el) {
             const rect = el.getBoundingClientRect();
-            // Emit slight offsets
             const x = rect.left + rect.width / 2 + (Math.random() - 0.5) * 20;
             const y = rect.top + rect.height / 2 + (Math.random() - 0.5) * 15;
             onLetterLock(x, y);
           }
-        }, 80);
+        }, 50);
       }
-    }, 4.9);
+    }, 2.15);
 
-    // 5.80s — Text gently fades out into Coming Soon page (approx 1s duration)
+    // 2.50s — Text gently fades out into Coming Soon page (approx 0.4s duration)
     tl.to({}, {
       onComplete: () => {
         clearInterval(particleDriftInterval);
         gsap.to(wordRef.current, {
           opacity: 0,
           filter: 'blur(12px)',
-          duration: 1.0,
+          duration: 0.4,
           ease: 'power2.inOut',
           onComplete: onSequenceComplete
         });
       }
-    }, 5.8);
+    }, 2.5);
 
     return () => {
       tl.kill();

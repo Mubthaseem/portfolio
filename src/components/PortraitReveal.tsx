@@ -62,7 +62,7 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
           { current: 0 },
           {
             current: 1,
-            duration: 1.6,
+            duration: 0.6,
             ease: 'power3.out'
           }
         );
