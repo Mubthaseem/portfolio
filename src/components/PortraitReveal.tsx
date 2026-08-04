@@ -215,8 +215,6 @@ export default function PortraitReveal({ onHoverStateChange }: PortraitRevealPro
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchstart', handleTouchMove, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('mouseleave', handleMouseLeaveWindow);
 
     let animFrameId: number;
