@@ -4,7 +4,7 @@ import {
   MapPin, ExternalLink, Code2, Terminal, Cpu, Sparkles, Send, Mail, Globe, Share2,
   Layers, Activity, ShieldCheck, Download, Tv, Utensils, ChevronRight, Zap, Radio, X
 } from 'lucide-react';
-import PortraitReveal from './PortraitReveal';
+// import PortraitReveal from './PortraitReveal';
 import AvatarScrubber from './AvatarScrubber';
 
 interface ComingSoonProps {
@@ -149,7 +149,6 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
   const [connectionEstablished, setConnectionEstablished] = useState(false);
 
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [currentScrollPos, setCurrentScrollPos] = useState(0);
   const scrollPaneRef = useRef<HTMLDivElement>(null);
   const scrollPosRef = useRef(0); // track raw position via ref for instant reads
 
@@ -161,7 +160,6 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
       scrollPosRef.current = scrollTop;
       setScrollProgress(progress);
-      setCurrentScrollPos(scrollTop);
 
       const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
       sections.forEach((sec) => {
@@ -232,28 +230,10 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
     { id: 'contact', label: 'CONTACT' },
   ];
 
-  // Threshold: 65% of viewport height (transition starts at WHO I AM)
-  const THRESHOLD = typeof window !== 'undefined' ? window.innerHeight * 0.65 : 500;
-  const FADE_RANGE = 150;
-
-  const isFrozen = currentScrollPos >= THRESHOLD;
-
-  // Static Portrait fades out over 150px after threshold
-  const portraitOpacity = currentScrollPos <= THRESHOLD
-    ? 1
-    : Math.max(0, 1 - (currentScrollPos - THRESHOLD) / FADE_RANGE);
-
-  // GIF fades IN as portrait fades out
-  const gifOpacity = scrollProgress >= 0.92
+  // Scrubber opacity: active everywhere, smoothly fades out near Contact section
+  const scrubberOpacity = scrollProgress >= 0.92
     ? Math.max(0, 1 - (scrollProgress - 0.92) / 0.08)
-    : currentScrollPos < THRESHOLD
-      ? 0
-      : Math.min(1, (currentScrollPos - THRESHOLD) / FADE_RANGE);
-
-  // Calculate normalized GIF scrubbing progress (0.0 to 1.0) starting from WHO I AM section to end
-  const maxScrollPos = (scrollPaneRef.current?.scrollHeight || 3000) - (scrollPaneRef.current?.clientHeight || 800);
-  const gifScrubRange = Math.max(1, maxScrollPos - THRESHOLD);
-  const gifScrollProgress = Math.min(1, Math.max(0, (currentScrollPos - THRESHOLD) / gifScrubRange));
+    : 1;
 
   return (
     <motion.div
@@ -262,7 +242,8 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       transition={{ duration: 1.5, ease: 'easeInOut' }}
       className="fixed inset-0 w-screen h-screen bg-transparent z-10 overflow-hidden select-none"
     >
-      {/* FIXED LEFT SIDE & BACKGROUND: Portrait + AI Canvas */}
+      {/* STATIC PORTRAIT (TURNED OFF — UNCOMMENT WHENEVER NEEDED) */}
+      {/* 
       <div className="fixed inset-0 w-full h-full z-10 pointer-events-none md:pointer-events-auto">
         <PortraitReveal 
           scrollProgress={scrollProgress} 
@@ -270,11 +251,12 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
           opacity={portraitOpacity}
         />
       </div>
+      */}
 
-      {/* STICKY FIXED AVATAR SCRUBBER — Hardware GPU accelerated video seeking (15MB RAM, mobile safe) */}
+      {/* SINGLE UNIFIED AVATAR ANIMATION SCRUBBER — 60 FPS scroll sync (Desktop 45% left, Mobile full) */}
       <AvatarScrubber
-        scrollProgress={gifScrollProgress}
-        opacity={gifOpacity}
+        scrollProgress={scrollProgress}
+        opacity={scrubberOpacity}
         className="z-20"
       />
 

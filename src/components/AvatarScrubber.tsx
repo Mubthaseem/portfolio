@@ -12,7 +12,6 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
   const animFrameRef = useRef<number | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Monitor video metadata load
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -31,7 +30,6 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
     };
   }, []);
 
-  // Update target time smoothly from scrollProgress
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.duration) return;
@@ -40,7 +38,7 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
     targetTimeRef.current = clampedProgress * video.duration;
   }, [scrollProgress, isLoaded]);
 
-  // 60 FPS GPU lerp seeking loop (ultra-lightweight ~15MB RAM, zero mobile OOM crashes)
+  // 60 FPS GPU lerp seeking loop
   useEffect(() => {
     let active = true;
 
@@ -49,7 +47,7 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
       if (video && video.duration) {
         const diff = targetTimeRef.current - video.currentTime;
         if (Math.abs(diff) > 0.005) {
-          video.currentTime += diff * 0.35; // Smooth 60fps seek interpolation
+          video.currentTime += diff * 0.35; // Smooth seek interpolation
         }
       }
       if (active) {
@@ -69,7 +67,7 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
 
   return (
     <div 
-      className={`fixed inset-0 w-full h-full pointer-events-none transition-opacity duration-300 ${className}`}
+      className={`fixed top-0 left-0 w-full md:w-[45%] h-full pointer-events-none transition-opacity duration-300 ${className}`}
       style={{ opacity }}
     >
       <div className="w-full h-full relative flex items-center justify-center">
@@ -79,15 +77,11 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
           muted
           playsInline
           preload="auto"
-          className="w-full h-full object-cover object-top"
-          style={{
-            // Perfect horizontal & vertical centering matching PortraitReveal canvas
-            objectPosition: 'center top'
-          }}
+          className="w-full h-full object-cover object-top mix-blend-screen"
         />
-        {/* Subtle Cyber Scanline Overlay */}
+        {/* Subtle Cyber Scanlines Overlay */}
         <div 
-          className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(rgba(77,163,255,0.15)_1px,transparent_1px)]"
+          className="absolute inset-0 pointer-events-none opacity-15 bg-[linear-gradient(rgba(77,163,255,0.15)_1px,transparent_1px)]"
           style={{ backgroundSize: '100% 4px' }}
         />
       </div>
