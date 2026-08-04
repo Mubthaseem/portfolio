@@ -16,10 +16,11 @@ async function processVideo() {
     fs.unlinkSync(path.join(outputDir, file));
   }
 
-  console.log('Extracting and chromakeying green screen video via ffmpeg-static...');
+  console.log('Extracting and chromakeying green screen video via ffmpeg-static (chromakey YUV filter for dark green backdrop)...');
 
-  // C-accelerated ffmpeg colorkey filter: colorkey=0x00FF00:0.28:0.08, scale to 720p width
-  const cmd = `"${ffmpegPath}" -y -i "${inputVideo}" -vf "colorkey=0x00FF00:0.28:0.08,scale=720:-1" -c:v libwebp -quality 80 -compression_level 4 "${outputDir}/frame_%03d.webp"`;
+  // ffmpeg chromakey filter in YUV space keyed for dark green backdrop (#368040)
+  // similarity: 0.32, blend: 0.12
+  const cmd = `"${ffmpegPath}" -y -i "${inputVideo}" -vf "chromakey=0x368040:0.32:0.12,scale=720:-1" -c:v libwebp -quality 80 -compression_level 4 "${outputDir}/frame_%03d.webp"`;
   
   execSync(cmd, { stdio: 'inherit' });
 
