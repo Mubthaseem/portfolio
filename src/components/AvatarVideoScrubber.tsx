@@ -2,76 +2,112 @@ import { useEffect, useRef, useState } from 'react';
 
 interface AvatarVideoScrubberProps {
   scrollProgress: number;
+  opacity?: number;
   className?: string;
 }
 
-export default function AvatarVideoScrubber({ scrollProgress, className = "" }: AvatarVideoScrubberProps) {
+export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, className = "" }: AvatarVideoScrubberProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const targetTimeRef = useRef(0);
-  const animFrameRef = useRef<number | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
+  // Fallback duration in case metadata isn't ready
+  const DURATION = 10.0;
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleLoadedMetadata = () => {
-      setIsLoaded(true);
+    // Reset target time
+    targetTimeRef.current = 0;
+
+    // "Warm up" the video decoder: play and pause immediately
+    const warmUpDecoder = async () => {
+      try {
+        video.muted = true;
+        video.playsInline = true;
+        // Play the video briefly
+        await video.play();
+        // Pause it on the first frame
+        video.pause();
+        setVideoLoaded(true);
+      } catch (err) {
+        console.warn("Video decoder warmup failed or was interrupted:", err);
+        // Fallback: still mark as loaded so the loop runs
+        setVideoLoaded(true);
+      }
     };
 
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    const handleLoadedMetadata = () => {
+      warmUpDecoder();
+    };
+
     if (video.readyState >= 1) {
-      setIsLoaded(true);
+      warmUpDecoder();
+    } else {
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
     }
 
-    return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-    };
-  }, []);
+    // Animation frame render loop
+    let animationFrameId: number;
+    const updateTime = () => {
+      if (video && video.readyState >= 1) {
+        const current = video.currentTime;
+        const target = targetTimeRef.current;
+        const diff = target - current;
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !video.duration) return;
-
-    const clampedProgress = Math.min(1, Math.max(0, scrollProgress));
-    targetTimeRef.current = clampedProgress * video.duration;
-  }, [scrollProgress, isLoaded]);
-
-  // Smooth lerp loop for 60fps video seeking
-  useEffect(() => {
-    let active = true;
-
-    const updateVideoSeek = () => {
-      const video = videoRef.current;
-      if (video && video.duration) {
-        const diff = targetTimeRef.current - video.currentTime;
+        // Smoothly interpolate time with inertia
         if (Math.abs(diff) > 0.005) {
-          video.currentTime += diff * 0.3; // Smooth lerp easing
+          video.currentTime = current + diff * 0.18;
+        } else if (current !== target) {
+          video.currentTime = target;
         }
       }
-      if (active) {
-        animFrameRef.current = requestAnimationFrame(updateVideoSeek);
-      }
+      animationFrameId = requestAnimationFrame(updateTime);
     };
 
-    animFrameRef.current = requestAnimationFrame(updateVideoSeek);
+    animationFrameId = requestAnimationFrame(updateTime);
 
     return () => {
-      active = false;
-      if (animFrameRef.current !== null) {
-        cancelAnimationFrame(animFrameRef.current);
+      cancelAnimationFrame(animationFrameId);
+      if (video) {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       }
     };
   }, []);
 
+  // Sync scrollProgress to target time
+  useEffect(() => {
+    const video = videoRef.current;
+    const duration = video ? (video.duration || DURATION) : DURATION;
+    targetTimeRef.current = Math.min(duration - 0.05, Math.max(0, scrollProgress * duration));
+  }, [scrollProgress]);
+
   return (
-    <video
-      ref={videoRef}
-      src="/avatar.mp4"
-      muted
-      playsInline
-      preload="auto"
-      className={`w-full h-full object-cover object-top ${className}`}
-    />
+    <div 
+      className={`fixed top-0 left-0 w-full md:w-[48%] h-full pointer-events-none transition-opacity duration-500 ${className}`}
+      style={{ opacity: videoLoaded ? opacity : 0 }}
+    >
+      <div 
+        className="w-full h-full relative flex items-center justify-center mix-blend-screen"
+        style={{
+          WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+          maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)'
+        }}
+      >
+        <video
+          ref={videoRef}
+          src="/avatar_black.mp4"
+          muted
+          playsInline
+          preload="auto"
+          className="w-full h-full object-cover object-top"
+          style={{
+            display: 'block',
+            backgroundColor: 'transparent'
+          }}
+        />
+      </div>
+    </div>
   );
 }

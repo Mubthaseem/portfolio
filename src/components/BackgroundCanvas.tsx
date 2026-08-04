@@ -207,7 +207,7 @@ export const BackgroundCanvas = forwardRef<BackgroundCanvasRef, {}>((_, ref) => 
     };
   }, []);
 
-  return <canvas ref={canvasRef} />;
+  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full pointer-events-none z-0" />;
 });
 
 BackgroundCanvas.displayName = 'BackgroundCanvas';
