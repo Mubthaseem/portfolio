@@ -11,29 +11,24 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
   const targetTimeRef = useRef(0);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
-  // Fallback duration in case metadata isn't ready
+  // Fallback duration
   const DURATION = 10.0;
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Reset target time
     targetTimeRef.current = 0;
 
-    // "Warm up" the video decoder: play and pause immediately
     const warmUpDecoder = async () => {
       try {
         video.muted = true;
         video.playsInline = true;
-        // Play the video briefly
         await video.play();
-        // Pause it on the first frame
         video.pause();
         setVideoLoaded(true);
       } catch (err) {
-        console.warn("Video decoder warmup failed or was interrupted:", err);
-        // Fallback: still mark as loaded so the loop runs
+        console.warn("Video decoder warmup failed:", err);
         setVideoLoaded(true);
       }
     };
@@ -48,7 +43,6 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
     }
 
-    // Animation frame render loop
     let animationFrameId: number;
     const updateTime = () => {
       if (video && video.readyState >= 1) {
@@ -88,23 +82,16 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
       className={`fixed top-0 left-0 w-full md:w-[48%] h-full pointer-events-none transition-opacity duration-500 ${className}`}
       style={{ opacity: videoLoaded ? opacity : 0 }}
     >
-      <div 
-        className="w-full h-full relative flex items-center justify-center mix-blend-screen"
-        style={{
-          WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
-          maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)'
-        }}
-      >
+      <div className="w-full h-full relative flex items-center justify-center">
         <video
           ref={videoRef}
-          src="/avatar_black.mp4"
+          src="/avatar_test.mp4"
           muted
           playsInline
           preload="auto"
           className="w-full h-full object-cover object-top"
           style={{
-            display: 'block',
-            backgroundColor: 'transparent'
+            display: 'block'
           }}
         />
       </div>
