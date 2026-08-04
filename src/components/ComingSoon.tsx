@@ -271,9 +271,9 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         />
       </div>
 
-      {/* STICKY FIXED AVATAR GIF CANVAS SCRUBBER — syncs frame directly with scroll */}
+      {/* STICKY FIXED AVATAR GIF CANVAS SCRUBBER — syncs frame directly with scroll & aligned with portrait */}
       <div 
-        className="fixed top-0 left-0 w-full md:w-[45%] h-full z-20 pointer-events-none"
+        className="fixed inset-0 w-full h-full z-20 pointer-events-none"
         style={{
           opacity: gifOpacity,
           transition: 'opacity 300ms ease-out',
@@ -283,6 +283,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       >
         <AvatarGifCanvas
           scrollProgress={gifScrollProgress}
+          opacity={gifOpacity}
           className="w-full h-full"
         />
       </div>
