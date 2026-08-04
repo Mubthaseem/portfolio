@@ -6,24 +6,24 @@ interface AvatarSequenceScrubberProps {
   className?: string;
 }
 
-const TOTAL_FRAMES = 300;
+const TOTAL_FRAMES = 240;
 
 export default function AvatarSequenceScrubber({ scrollProgress, opacity = 1, className = "" }: AvatarSequenceScrubberProps) {
-  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(1);
 
-  // Pre-load all 300 WebP frames into browser disk cache
+  // Pre-load all 240 green-screen-removed WebP frames into browser cache
   useEffect(() => {
-    for (let i = 0; i < TOTAL_FRAMES; i++) {
+    for (let i = 1; i <= TOTAL_FRAMES; i++) {
       const img = new Image();
       const numStr = String(i).padStart(3, '0');
       img.src = `/frames/frame_${numStr}.webp`;
     }
   }, []);
 
-  // Update active frame index based on scrollProgress
+  // Map scrollProgress (0.0 to 1.0) directly to frame 1 -> 240
   useEffect(() => {
     const clampedProgress = Math.min(1, Math.max(0, scrollProgress));
-    const frameIdx = Math.min(TOTAL_FRAMES - 1, Math.floor(clampedProgress * TOTAL_FRAMES));
+    const frameIdx = Math.max(1, Math.min(TOTAL_FRAMES, Math.floor(clampedProgress * TOTAL_FRAMES) + 1));
     setCurrentFrameIndex(frameIdx);
   }, [scrollProgress]);
 

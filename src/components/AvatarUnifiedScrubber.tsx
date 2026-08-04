@@ -1,4 +1,4 @@
-import AvatarGreenChromaScrubber from './AvatarGreenChromaScrubber';
+import AvatarSequenceScrubber from './AvatarSequenceScrubber';
 
 interface AvatarUnifiedScrubberProps {
   scrollProgress: number;
@@ -8,7 +8,7 @@ interface AvatarUnifiedScrubberProps {
 
 export default function AvatarUnifiedScrubber({ scrollProgress, opacity = 1, className = "" }: AvatarUnifiedScrubberProps) {
   return (
-    <AvatarGreenChromaScrubber
+    <AvatarSequenceScrubber
       scrollProgress={scrollProgress}
       opacity={opacity}
       className={className}
