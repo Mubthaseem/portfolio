@@ -168,43 +168,8 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
     let drawY = isMobile ? h - drawH : (h - drawH) / 2;
 
     ctx.save();
-
-    // Cyber Opacity Noise Flicker Effect
-    const isFlickering = Math.random() > 0.70;
-    const flickerAlpha = isFlickering ? (0.85 + Math.random() * 0.15) : 1.0;
-    ctx.globalAlpha = opacity * flickerAlpha;
-
-    // Draw base GIF frame in exact aligned position
+    ctx.globalAlpha = opacity;
     ctx.drawImage(currentFrameCanvas, drawX, drawY, drawW, drawH);
-
-    // Cyber Chromatic Glitch Shift
-    if (isFlickering && Math.random() > 0.75) {
-      const glitchOffset = (Math.random() - 0.5) * 8;
-      const sliceY = drawY + Math.random() * (drawH * 0.6);
-      const sliceH = 15 + Math.random() * 30;
-
-      ctx.save();
-      ctx.globalAlpha = opacity * 0.75;
-      ctx.globalCompositeOperation = 'screen';
-      ctx.drawImage(
-        currentFrameCanvas,
-        0, (sliceY - drawY) * (currentFrameCanvas.height / drawH),
-        currentFrameCanvas.width, sliceH * (currentFrameCanvas.height / drawH),
-        drawX + glitchOffset, sliceY,
-        drawW, sliceH
-      );
-      ctx.restore();
-    }
-
-    // Cyber Scanlines Overlay
-    ctx.save();
-    ctx.globalAlpha = opacity * 0.12;
-    ctx.fillStyle = '#4DA3FF';
-    for (let y = drawY; y < drawY + drawH; y += 4) {
-      ctx.fillRect(drawX, y, drawW, 1);
-    }
-    ctx.restore();
-
     ctx.restore();
 
   }, [scrollProgress, opacity, loaded]);

@@ -84,11 +84,6 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
             maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)'
           }}
         />
-        {/* Subtle Cyber Scanlines Overlay */}
-        <div 
-          className="absolute inset-0 pointer-events-none opacity-15 bg-[linear-gradient(rgba(77,163,255,0.15)_1px,transparent_1px)]"
-          style={{ backgroundSize: '100% 4px' }}
-        />
       </div>
     </div>
   );
