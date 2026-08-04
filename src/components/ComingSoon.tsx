@@ -5,7 +5,7 @@ import {
   Layers, Activity, ShieldCheck, Download, Tv, Utensils, ChevronRight, Zap, Radio, X
 } from 'lucide-react';
 import PortraitReveal from './PortraitReveal';
-import AvatarGifCanvas from './AvatarGifCanvas';
+import AvatarVideoScrubber from './AvatarVideoScrubber';
 
 interface ComingSoonProps {
   isVisible: boolean;
@@ -271,7 +271,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         />
       </div>
 
-      {/* STICKY FIXED AVATAR CANVAS SCRUBBER — syncs frame with scroll */}
+      {/* STICKY FIXED AVATAR MP4 VIDEO SCRUBBER — syncs frame directly with scroll */}
       <div 
         className="fixed top-0 left-0 w-full md:w-[45%] h-full z-20 pointer-events-none"
         style={{
@@ -281,7 +281,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
           transform: 'translate3d(0,0,0)'
         }}
       >
-        <AvatarGifCanvas
+        <AvatarVideoScrubber
           scrollProgress={gifScrollProgress}
           className="w-full h-full"
         />
