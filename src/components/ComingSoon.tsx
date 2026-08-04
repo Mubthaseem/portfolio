@@ -153,36 +153,42 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
   useEffect(() => {
     const handleScroll = () => {
       const pane = scrollPaneRef.current;
-      const currentScroll = pane?.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
-      const scrollHeight = pane?.scrollHeight || document.documentElement.scrollHeight || 1;
-      const clientHeight = pane?.clientHeight || window.innerHeight || 1;
-      const maxScroll = scrollHeight - clientHeight;
-      const progress = maxScroll > 0 ? Math.min(1, Math.max(0, currentScroll / maxScroll)) : 0;
-      
-      setScrollProgress(progress);
+      if (pane) {
+        const maxScroll = pane.scrollHeight - pane.clientHeight;
+        const currentScroll = pane.scrollTop;
+        const progress = maxScroll > 0 ? Math.min(1, Math.max(0, currentScroll / maxScroll)) : 0;
+        setScrollProgress(progress);
 
-      const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
-      sections.forEach((sec) => {
-        const el = document.getElementById(sec);
-        if (el) {
-          const top = el.offsetTop - 220;
-          const height = el.offsetHeight;
-          if (currentScroll >= top && currentScroll < top + height) {
-            setActiveNav(sec);
+        const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
+        sections.forEach((sec) => {
+          const el = document.getElementById(sec);
+          if (el) {
+            const top = el.offsetTop - 220;
+            const height = el.offsetHeight;
+            if (currentScroll >= top && currentScroll < top + height) {
+              setActiveNav(sec);
+            }
           }
-        }
-      });
+        });
+      }
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      const pane = scrollPaneRef.current;
+      if (pane) {
+        pane.scrollTop += e.deltaY;
+      }
     };
 
     const pane = scrollPaneRef.current;
     if (pane) {
       pane.addEventListener('scroll', handleScroll, { passive: true });
     }
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
       if (pane) pane.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('wheel', handleWheel);
     };
   }, []);
 
