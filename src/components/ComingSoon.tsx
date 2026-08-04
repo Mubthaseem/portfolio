@@ -5,7 +5,7 @@ import {
   Layers, Activity, ShieldCheck, Download, Tv, Utensils, ChevronRight, Zap, Radio, X
 } from 'lucide-react';
 // import PortraitReveal from './PortraitReveal';
-import AvatarScrubber from './AvatarScrubber';
+import AvatarGifCanvas from './AvatarGifCanvas';
 
 interface ComingSoonProps {
   isVisible: boolean;
@@ -253,11 +253,11 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       </div>
       */}
 
-      {/* SINGLE UNIFIED AVATAR ANIMATION SCRUBBER — 60 FPS scroll sync (Desktop 45% left, Mobile full) */}
-      <AvatarScrubber
+      {/* UNIFIED NEW AVATAR GIF CANVAS SCRUBBER — Frame-by-frame 60 FPS scroll sync */}
+      <AvatarGifCanvas
         scrollProgress={scrollProgress}
         opacity={scrubberOpacity}
-        className="z-20"
+        className="z-20 mix-blend-screen"
       />
 
       {/* FIXED TOP HEADER & NAVIGATION OS BAR */}
