@@ -67,7 +67,7 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
 
   return (
     <div 
-      className={`fixed top-0 left-0 w-full md:w-[45%] h-full pointer-events-none transition-opacity duration-300 ${className}`}
+      className={`fixed top-0 left-0 w-full md:w-[48%] h-full pointer-events-none transition-opacity duration-300 ${className}`}
       style={{ opacity }}
     >
       <div className="w-full h-full relative flex items-center justify-center">
@@ -78,6 +78,11 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
           playsInline
           preload="auto"
           className="w-full h-full object-cover object-top mix-blend-screen"
+          style={{
+            // Radial edge mask to dissolve any outer rectangular edges completely into the background
+            WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+            maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)'
+          }}
         />
         {/* Subtle Cyber Scanlines Overlay */}
         <div 
