@@ -83,7 +83,7 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
     img2.src = '/ch2.png';
     img2Ref.current = img2;
 
-    avatar.src = '/avatar.webp';
+    avatar.src = '/avatar.gif';
     avatarRef.current = avatar;
 
     const particles: Particle[] = [];
