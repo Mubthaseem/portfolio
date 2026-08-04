@@ -5,6 +5,7 @@ import {
   Layers, Activity, ShieldCheck, Download, Tv, Utensils, ChevronRight, Zap, Radio, X
 } from 'lucide-react';
 import PortraitReveal from './PortraitReveal';
+import AvatarGifCanvas from './AvatarGifCanvas';
 
 interface ComingSoonProps {
   isVisible: boolean;
@@ -150,52 +151,63 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [currentScrollPos, setCurrentScrollPos] = useState(0);
   const scrollPaneRef = useRef<HTMLDivElement>(null);
-
-  // Background preload /public/avatar.gif after Hero loads
-  useEffect(() => {
-    const img = new Image();
-    img.src = '/avatar.gif';
-  }, []);
+  const scrollPosRef = useRef(0); // track raw position via ref for instant reads
 
   useEffect(() => {
+    const updateScrollState = (scrollTop: number) => {
+      const pane = scrollPaneRef.current;
+      if (!pane) return;
+      const maxScroll = pane.scrollHeight - pane.clientHeight;
+      const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
+      scrollPosRef.current = scrollTop;
+      setScrollProgress(progress);
+      setCurrentScrollPos(scrollTop);
+
+      const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
+      sections.forEach((sec) => {
+        const el = document.getElementById(sec);
+        if (el) {
+          const top = el.offsetTop - 220;
+          const height = el.offsetHeight;
+          if (scrollTop >= top && scrollTop < top + height) {
+            setActiveNav(sec);
+          }
+        }
+      });
+    };
+
     const handleScroll = () => {
       const pane = scrollPaneRef.current;
-      if (pane) {
-        const maxScroll = pane.scrollHeight - pane.clientHeight;
-        const currentScroll = pane.scrollTop;
-        const progress = maxScroll > 0 ? Math.min(1, Math.max(0, currentScroll / maxScroll)) : 0;
-        setScrollProgress(progress);
-        setCurrentScrollPos(currentScroll);
-
-        const sections = ['home', 'who-i-am', 'tech-stack', 'what-i-build', 'projects', 'tools', 'status', 'contact'];
-        sections.forEach((sec) => {
-          const el = document.getElementById(sec);
-          if (el) {
-            const top = el.offsetTop - 220;
-            const height = el.offsetHeight;
-            if (currentScroll >= top && currentScroll < top + height) {
-              setActiveNav(sec);
-            }
-          }
-        });
-      }
+      if (pane) updateScrollState(pane.scrollTop);
     };
 
     const handleWheel = (e: WheelEvent) => {
       const pane = scrollPaneRef.current;
       if (pane) {
-        pane.scrollTop += e.deltaY;
+        const newPos = Math.max(0, Math.min(pane.scrollHeight - pane.clientHeight, pane.scrollTop + e.deltaY));
+        pane.scrollTop = newPos;
+        updateScrollState(newPos); // update immediately, don't wait for scroll event
       }
+    };
+
+    const handleTouchMove = (_e: TouchEvent) => {
+      // on mobile, rely on scroll event from the pane
+      const pane = scrollPaneRef.current;
+      if (pane) updateScrollState(pane.scrollTop);
     };
 
     const pane = scrollPaneRef.current;
     if (pane) {
       pane.addEventListener('scroll', handleScroll, { passive: true });
+      pane.addEventListener('touchmove', handleTouchMove, { passive: true });
     }
     window.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
-      if (pane) pane.removeEventListener('scroll', handleScroll);
+      if (pane) {
+        pane.removeEventListener('scroll', handleScroll);
+        pane.removeEventListener('touchmove', handleTouchMove);
+      }
       window.removeEventListener('wheel', handleWheel);
     };
   }, []);
@@ -220,23 +232,28 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
     { id: 'contact', label: 'CONTACT' },
   ];
 
-  // Threshold: 65% of viewport height (simple, no DOM queries)
+  // Threshold: 65% of viewport height (transition starts at WHO I AM)
   const THRESHOLD = typeof window !== 'undefined' ? window.innerHeight * 0.65 : 500;
   const FADE_RANGE = 150;
 
   const isFrozen = currentScrollPos >= THRESHOLD;
 
-  // Portrait fades out over 150px after threshold
+  // Static Portrait fades out over 150px after threshold
   const portraitOpacity = currentScrollPos <= THRESHOLD
     ? 1
     : Math.max(0, 1 - (currentScrollPos - THRESHOLD) / FADE_RANGE);
 
-  // GIF fades IN exactly as portrait fades out, fades out near contact
+  // GIF fades IN as portrait fades out
   const gifOpacity = scrollProgress >= 0.92
     ? Math.max(0, 1 - (scrollProgress - 0.92) / 0.08)
     : currentScrollPos < THRESHOLD
       ? 0
       : Math.min(1, (currentScrollPos - THRESHOLD) / FADE_RANGE);
+
+  // Calculate normalized GIF scrubbing progress (0.0 to 1.0) starting from WHO I AM section to end
+  const maxScrollPos = (scrollPaneRef.current?.scrollHeight || 3000) - (scrollPaneRef.current?.clientHeight || 800);
+  const gifScrubRange = Math.max(1, maxScrollPos - THRESHOLD);
+  const gifScrollProgress = Math.min(1, Math.max(0, (currentScrollPos - THRESHOLD) / gifScrubRange));
 
   return (
     <motion.div
@@ -254,7 +271,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         />
       </div>
 
-      {/* STICKY FIXED AVATAR GIF — always in DOM, opacity controlled */}
+      {/* STICKY FIXED AVATAR CANVAS SCRUBBER — syncs frame with scroll */}
       <div 
         className="fixed top-0 left-0 w-full md:w-[45%] h-full z-20 pointer-events-none"
         style={{
@@ -264,11 +281,9 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
           transform: 'translate3d(0,0,0)'
         }}
       >
-        <img 
-          src="/avatar.gif" 
-          alt="Mubthaseem Animated Avatar" 
-          className="w-full h-full object-cover object-top"
-          style={{ display: 'block' }}
+        <AvatarGifCanvas
+          scrollProgress={gifScrollProgress}
+          className="w-full h-full"
         />
       </div>
 
