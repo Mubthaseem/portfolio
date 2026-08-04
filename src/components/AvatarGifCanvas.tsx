@@ -15,17 +15,25 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLCanvasElement[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0); // 0 to 100
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadStateText, setDownloadStateText] = useState('INITIALIZING ASSET FETCH...');
   const [loadedMB, setLoadedMB] = useState('0.0');
   const [totalMB, setTotalMB] = useState('46.0');
 
-  // Real Network Download Progress Tracking + CacheStorage Integration
+  // IRONCLAD MOBILE GUARD: Completely block 46MB GIF fetching and frame decoding on mobile devices to prevent WebKit memory crashes
+  const isMobileDevice = typeof window !== 'undefined' && (
+    window.innerWidth < 768 || 
+    'ontouchstart' in window || 
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  );
+
   useEffect(() => {
+    // DO NOT run on mobile devices — mobile uses lightweight GPU video seeking
+    if (isMobileDevice) return;
+
     let active = true;
 
     const fetchWithProgress = async (): Promise<ArrayBuffer> => {
-      // 1. Check browser CacheStorage first for 0ms load
       if (typeof window !== 'undefined' && 'caches' in window) {
         try {
           const cache = await caches.open(CACHE_NAME);
@@ -40,7 +48,6 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
         }
       }
 
-      // 2. Real XHR Download for precise byte progress
       return new Promise<ArrayBuffer>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('GET', GIF_URL);
@@ -49,11 +56,11 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
         xhr.onprogress = (e) => {
           if (!active) return;
           const total = e.lengthComputable && e.total > 0 ? e.total : TOTAL_EXPECTED_BYTES;
-          const loaded = e.loaded;
-          const percent = Math.min(99, Math.round((loaded / total) * 100));
+          const loadedBytes = e.loaded;
+          const percent = Math.min(99, Math.round((loadedBytes / total) * 100));
 
           setDownloadProgress(percent);
-          setLoadedMB((loaded / (1024 * 1024)).toFixed(1));
+          setLoadedMB((loadedBytes / (1024 * 1024)).toFixed(1));
           setTotalMB((total / (1024 * 1024)).toFixed(1));
           setDownloadStateText(`DOWNLOADING AVATAR TRANSFORMATION [ ${percent}% ]`);
         };
@@ -64,7 +71,6 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
             setDownloadProgress(100);
             setDownloadStateText('DECODING FRAME SEQUENCES...');
             
-            // Save to CacheStorage asynchronously for next visit
             if (typeof window !== 'undefined' && 'caches' in window) {
               caches.open(CACHE_NAME).then((cache) => {
                 const response = new Response(xhr.response, {
@@ -172,7 +178,9 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
     return () => {
       active = false;
     };
-  }, []);
+  }, [isMobileDevice]);
+
+  if (isMobileDevice) return null;
 
   // Main canvas render loop
   useEffect(() => {
@@ -224,12 +232,10 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
         className="w-full h-full block"
       />
 
-      {/* Cyber Real-Time Download Progress Telemetry (Displays directly over the image position while downloading) */}
+      {/* Cyber Real-Time Download Progress Telemetry */}
       {!loaded && (
         <div className="fixed top-0 left-0 w-full md:w-[48%] h-full z-30 flex flex-col items-center justify-center p-6 select-none pointer-events-none">
           <div className="bg-black/80 backdrop-blur-xl border border-primary/40 p-6 rounded-2xl max-w-sm w-full flex flex-col gap-4 shadow-[0_0_30px_rgba(77,163,255,0.25)] font-mono text-xs">
-            
-            {/* Download Status Header */}
             <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
               <div className="flex items-center gap-2 text-primary font-bold tracking-wider">
                 <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
@@ -238,12 +244,10 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
               <span className="text-highlight font-bold">{downloadProgress}%</span>
             </div>
 
-            {/* State Message */}
             <p className="text-[10px] text-secondary tracking-widest uppercase">
               {downloadStateText}
             </p>
 
-            {/* Cyber Progress Bar */}
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden relative">
               <div 
                 className="h-full bg-primary shadow-[0_0_10px_#4DA3FF] transition-all duration-200"
@@ -251,12 +255,10 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
               />
             </div>
 
-            {/* Byte Counters */}
             <div className="flex justify-between items-center text-[9px] text-secondary tracking-widest">
               <span>BYTES: {loadedMB} MB / {totalMB} MB</span>
               <span>RES: 1080P HD</span>
             </div>
-
           </div>
         </div>
       )}
