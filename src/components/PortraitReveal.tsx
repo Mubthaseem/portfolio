@@ -219,9 +219,20 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
     const tick = () => {
       timeRef.current += 0.03;
 
-      // Transformation progress combines scroll position AND click lock
-      const targetProgress = isLockedAI ? 1 : Math.min(1, Math.max(0, scrollProgressRef.current));
-      transformProgressRef.current += (targetProgress - transformProgressRef.current) * 0.12;
+      // 1. Transformation start logic:
+      // - At HOME (scrollProgress < 0.10): Only show clean static image (ch1.png).
+      // - From WHO I AM onwards (scrollProgress >= 0.10): Transformation starts morphing from 0 to 1 over the portrait.
+      let rawScroll = scrollProgressRef.current;
+      let targetProgress = 0;
+
+      if (isLockedAI) {
+        targetProgress = 1;
+      } else if (rawScroll >= 0.10) {
+        // Map 0.10 -> 0.90 to 0.0 -> 1.0
+        targetProgress = Math.min(1, Math.max(0, (rawScroll - 0.10) / 0.80));
+      }
+
+      transformProgressRef.current += (targetProgress - transformProgressRef.current) * 0.14;
       const fullProgress = transformProgressRef.current;
       const introProgress = introProgressRef.current;
       
@@ -229,15 +240,6 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
 
       const w = canvas.width;
       const h = canvas.height;
-
-      springRef.current.x += (mouseRef.current.targetX - springRef.current.x) * 0.14;
-      springRef.current.y += (mouseRef.current.targetY - springRef.current.y) * 0.14;
-
-      parallaxRef.current.x += (parallaxRef.current.targetX - parallaxRef.current.x) * 0.08;
-      parallaxRef.current.y += (parallaxRef.current.targetY - parallaxRef.current.y) * 0.08;
-
-      const offsetDx = parallaxRef.current.x * 6;
-      const offsetDy = parallaxRef.current.y * 4;
 
       const isMobile = w < 768;
       const imgW = img1Ref.current?.naturalWidth || 1451;
@@ -250,8 +252,27 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
       
       // On desktop: position centered in left 45% region so face stays aligned beside text column
       let drawX = isMobile ? (w - drawW) / 2 : (w * 0.45 - drawW) / 2;
-      if (!isMobile && drawX < 0) drawX = 0; // Keep aligned to left if aspect ratio is wide
+      if (!isMobile && drawX < 0) drawX = 0;
       let drawY = isMobile ? h - drawH : (h - drawH) / 2;
+
+      // Center of face position
+      const faceCenterX = drawX + drawW * 0.50;
+      const faceCenterY = drawY + drawH * 0.38;
+
+      // When scrolling down past HOME without active mouse movement, lock scanner ring onto face center
+      if (!mouseRef.current.isInside || rawScroll > 0.10) {
+        mouseRef.current.targetX += (faceCenterX - mouseRef.current.targetX) * 0.1;
+        mouseRef.current.targetY += (faceCenterY - mouseRef.current.targetY) * 0.1;
+      }
+
+      springRef.current.x += (mouseRef.current.targetX - springRef.current.x) * 0.14;
+      springRef.current.y += (mouseRef.current.targetY - springRef.current.y) * 0.14;
+
+      parallaxRef.current.x += (parallaxRef.current.targetX - parallaxRef.current.x) * 0.08;
+      parallaxRef.current.y += (parallaxRef.current.targetY - parallaxRef.current.y) * 0.08;
+
+      const offsetDx = parallaxRef.current.x * 6;
+      const offsetDy = parallaxRef.current.y * 4;
 
       // Scale down from 108% to 100% during intro entrance
       const introScale = 1.08 - 0.08 * introProgress;
