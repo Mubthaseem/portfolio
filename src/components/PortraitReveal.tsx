@@ -289,7 +289,7 @@ export default function PortraitReveal({
       // 1. Render Base Human Portrait (ch1.png) - Fades out as scroll progress increases to 1
       if (img1Ref.current && fullProgress < 0.99) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, 1.0 - fullProgress) * introProgress;
+        ctx.globalAlpha = Math.max(0, 1.0 - fullProgress) * introProgress * opacity;
         ctx.translate(w / 2, h / 2);
         ctx.scale(breathe, breathe);
         ctx.translate(-w / 2, -h / 2);
@@ -349,7 +349,7 @@ export default function PortraitReveal({
         ctx.clip();
 
         ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = Math.min(1.0, fullProgress > 0 ? fullProgress * 1.5 : 1.0);
+        ctx.globalAlpha = Math.min(1.0, fullProgress > 0 ? fullProgress * 1.5 : 1.0) * opacity;
         ctx.drawImage(img2Ref.current, drawX + offsetDx, drawY + offsetDy, drawW, drawH);
 
         // Chromatic aberration glitch effect inside scanner

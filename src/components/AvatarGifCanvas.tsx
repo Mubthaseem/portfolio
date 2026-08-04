@@ -14,19 +14,13 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLCanvasElement[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const isFetchingRef = useRef(false);
 
-  // LAZY LOAD + BROWSER CACHESTORAGE INTEGRATION:
-  // Checks device cache first for 0ms load, downloads only once, and caches persistently!
+  // Fetch & decode GIF in idle background batches on mount so it's ready without blocking main thread
   useEffect(() => {
-    if (isFetchingRef.current || loaded) return;
-    if (scrollProgress <= 0.01) return;
-
-    isFetchingRef.current = true;
     let active = true;
 
     const loadGifArrayBuffer = async (): Promise<ArrayBuffer> => {
-      // 1. Try retrieving from browser CacheStorage
+      // 1. Try reading from browser CacheStorage
       if (typeof window !== 'undefined' && 'caches' in window) {
         try {
           const cache = await caches.open(CACHE_NAME);
@@ -50,86 +44,94 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
       return await res.arrayBuffer();
     };
 
-    loadGifArrayBuffer()
-      .then((buffer) => {
-        if (!active) return;
-        const gif = parseGIF(buffer);
-        const rawFrames = decompressFrames(gif, true);
-
-        if (!rawFrames || rawFrames.length === 0) return;
-
-        const width = gif.lsd.width;
-        const height = gif.lsd.height;
-
-        const frameCanvases: HTMLCanvasElement[] = [];
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext('2d')!;
-
-        // Chunked non-blocking frame decompression (batches of 10)
-        let index = 0;
-        const total = rawFrames.length;
-
-        const processBatch = () => {
+    // Use requestIdleCallback or setTimeout so fetching/decoding starts in idle time without home lag
+    const startAsyncLoad = () => {
+      loadGifArrayBuffer()
+        .then((buffer) => {
           if (!active) return;
-          const batchSize = 10;
-          const end = Math.min(index + batchSize, total);
+          const gif = parseGIF(buffer);
+          const rawFrames = decompressFrames(gif, true);
 
-          for (; index < end; index++) {
-            const frame = rawFrames[index];
-            const dims = frame.dims;
-            if (dims) {
-              const framePatch = new ImageData(
-                new Uint8ClampedArray(frame.patch),
-                dims.width,
-                dims.height
-              );
+          if (!rawFrames || rawFrames.length === 0) return;
 
-              const patchCanvas = document.createElement('canvas');
-              patchCanvas.width = dims.width;
-              patchCanvas.height = dims.height;
-              const patchCtx = patchCanvas.getContext('2d')!;
-              patchCtx.putImageData(framePatch, 0, 0);
+          const width = gif.lsd.width;
+          const height = gif.lsd.height;
 
-              if (frame.disposalType === 2) {
-                tempCtx.clearRect(dims.left, dims.top, dims.width, dims.height);
+          const frameCanvases: HTMLCanvasElement[] = [];
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = width;
+          tempCanvas.height = height;
+          const tempCtx = tempCanvas.getContext('2d')!;
+
+          let index = 0;
+          const total = rawFrames.length;
+
+          const processBatch = () => {
+            if (!active) return;
+            const batchSize = 15;
+            const end = Math.min(index + batchSize, total);
+
+            for (; index < end; index++) {
+              const frame = rawFrames[index];
+              const dims = frame.dims;
+              if (dims) {
+                const framePatch = new ImageData(
+                  new Uint8ClampedArray(frame.patch),
+                  dims.width,
+                  dims.height
+                );
+
+                const patchCanvas = document.createElement('canvas');
+                patchCanvas.width = dims.width;
+                patchCanvas.height = dims.height;
+                const patchCtx = patchCanvas.getContext('2d')!;
+                patchCtx.putImageData(framePatch, 0, 0);
+
+                if (frame.disposalType === 2) {
+                  tempCtx.clearRect(dims.left, dims.top, dims.width, dims.height);
+                }
+                tempCtx.drawImage(patchCanvas, dims.left, dims.top);
               }
-              tempCtx.drawImage(patchCanvas, dims.left, dims.top);
+
+              const frameCanvas = document.createElement('canvas');
+              frameCanvas.width = width;
+              frameCanvas.height = height;
+              const frameCtx = frameCanvas.getContext('2d')!;
+              frameCtx.drawImage(tempCanvas, 0, 0);
+              frameCanvases.push(frameCanvas);
             }
 
-            const frameCanvas = document.createElement('canvas');
-            frameCanvas.width = width;
-            frameCanvas.height = height;
-            const frameCtx = frameCanvas.getContext('2d')!;
-            frameCtx.drawImage(tempCanvas, 0, 0);
-            frameCanvases.push(frameCanvas);
-          }
-
-          if (index < total) {
-            if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-              (window as any).requestIdleCallback(processBatch);
+            if (index < total) {
+              if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                (window as any).requestIdleCallback(processBatch);
+              } else {
+                setTimeout(processBatch, 16);
+              }
             } else {
-              setTimeout(processBatch, 16);
+              if (active) {
+                framesRef.current = frameCanvases;
+                setLoaded(true);
+              }
             }
-          } else {
-            if (active) {
-              framesRef.current = frameCanvases;
-              setLoaded(true);
-            }
-          }
-        };
+          };
 
-        processBatch();
-      })
-      .catch((err) => console.error("Error decoding GIF frames:", err));
+          processBatch();
+        })
+        .catch((err) => console.error("Error decoding GIF frames:", err));
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(startAsyncLoad);
+    } else {
+      setTimeout(startAsyncLoad, 100);
+    }
 
     return () => {
       active = false;
     };
-  }, [scrollProgress, loaded]);
+  }, []);
 
-  // Canvas render loop — aligned with PortraitReveal canvas math + cyber flicker
+  // Main canvas render loop — aligned with PortraitReveal canvas math + cyber flicker
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
