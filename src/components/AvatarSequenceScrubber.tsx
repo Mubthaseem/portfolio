@@ -9,20 +9,35 @@ interface AvatarSequenceScrubberProps {
 const TOTAL_FRAMES = 300;
 
 export default function AvatarSequenceScrubber({ scrollProgress, opacity = 1, className = "" }: AvatarSequenceScrubberProps) {
-  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const [loadedCount, setLoadedCount] = useState(0);
 
-  // Pre-load frame images in background so frame swapping is instant
+  // Pre-load all 300 WebP frames into memory as HTMLImageElement objects
   useEffect(() => {
+    let active = true;
     const loadedImages: HTMLImageElement[] = [];
+    let count = 0;
 
     for (let i = 0; i < TOTAL_FRAMES; i++) {
       const img = new Image();
       const numStr = String(i).padStart(3, '0');
       img.src = `/frames/frame_${numStr}.webp`;
+      img.onload = () => {
+        if (!active) return;
+        count++;
+        if (count % 30 === 0 || count === TOTAL_FRAMES) {
+          setLoadedCount(count);
+        }
+      };
       loadedImages.push(img);
     }
     imagesRef.current = loadedImages;
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Update active frame index based on scrollProgress
@@ -32,25 +47,49 @@ export default function AvatarSequenceScrubber({ scrollProgress, opacity = 1, cl
     setCurrentFrameIndex(frameIdx);
   }, [scrollProgress]);
 
-  const frameStr = String(currentFrameIndex).padStart(3, '0');
-  const frameSrc = `/frames/frame_${frameStr}.webp`;
+  // Render loop — draws pre-loaded frame onto full-screen canvas with 100% alpha transparency
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+
+    ctx.clearRect(0, 0, w, h);
+
+    const img = imagesRef.current[currentFrameIndex];
+    if (!img) return;
+
+    // Position math matching site layout
+    const isMobile = w < 768;
+    const baseAspect = (img.naturalWidth || 960) / (img.naturalHeight || 720);
+
+    let drawH = isMobile ? h * 0.85 : h;
+    let drawW = drawH * baseAspect;
+    let drawX = isMobile ? (w - drawW) / 2 : (w * 0.48 - drawW) / 2;
+    if (!isMobile && drawX < 0) drawX = 0;
+    let drawY = isMobile ? h - drawH : (h - drawH) / 2;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    ctx.restore();
+
+  }, [currentFrameIndex, opacity, loadedCount]);
 
   return (
-    <div 
-      className={`fixed top-0 left-0 w-full md:w-[48%] h-full pointer-events-none transition-opacity duration-300 ${className}`}
-      style={{ opacity }}
-    >
-      <div className="w-full h-full relative flex items-center justify-center">
-        <img
-          src={frameSrc}
-          alt="Mubthaseem Animated Avatar"
-          className="w-full h-full object-cover object-top"
-          style={{
-            // 100% True Alpha Transparency — space background shines right through with zero black background!
-            display: 'block'
-          }}
-        />
-      </div>
+    <div className={`fixed inset-0 w-full h-full pointer-events-none ${className}`}>
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block"
+      />
     </div>
   );
 }
