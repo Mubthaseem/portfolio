@@ -11,7 +11,6 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
   const targetTimeRef = useRef(0);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
-  // Fallback duration
   const DURATION = 10.0;
 
   useEffect(() => {

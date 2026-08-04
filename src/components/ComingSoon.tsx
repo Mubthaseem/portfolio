@@ -182,6 +182,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
     const pane = scrollPaneRef.current;
     if (pane) {
       pane.addEventListener('scroll', handleScroll, { passive: true });
+      updateScrollState(pane.scrollTop);
     }
 
     return () => {
@@ -189,7 +190,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         pane.removeEventListener('scroll', handleScroll);
       }
     };
-  }, []);
+  }, [isVisible]);
 
   const triggerConnectionEstablish = () => {
     setConnectionEstablished(true);
