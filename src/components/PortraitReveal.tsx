@@ -83,7 +83,7 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
     img2.src = '/ch2.png';
     img2Ref.current = img2;
 
-    avatar.src = '/avatar.gif';
+    avatar.src = '/avatar.webp';
     avatarRef.current = avatar;
 
     const particles: Particle[] = [];
@@ -278,7 +278,7 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
       const introScale = 1.08 - 0.08 * introProgress;
       const breathe = (1.0 + Math.sin(timeRef.current * 0.6) * 0.004) * introScale;
 
-      // 1. Render Base Human Portrait (ch1.png) - Fades out as scroll progress increases to 1
+      // 1. Render Base Human Portrait (ch1.png) at HOME (scroll < 0.10)
       if (img1Ref.current && fullProgress < 0.99) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, 1.0 - fullProgress) * introProgress;
@@ -303,59 +303,35 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
         ctx.restore();
       }
 
-      // Calculate effective reveal radius (expands outward as scrollProgress increases)
+      // 2. Render 1080p Avatar Transformation GIF (avatar.gif) starting from WHO I AM (scroll >= 0.10)
+      if (avatarRef.current && fullProgress > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1.0, fullProgress * 1.5);
+        ctx.translate(w / 2, h / 2);
+        ctx.scale(breathe, breathe);
+        ctx.translate(-w / 2, -h / 2);
+
+        ctx.drawImage(avatarRef.current, drawX + offsetDx, drawY + offsetDy, drawW, drawH);
+
+        // Subtle cybernetic chromatic aberration glitch effect during transformation
+        if (fullProgress < 0.95) {
+          const glitchFactor = Math.sin(timeRef.current * 6.0) > 0.8 ? 1 : 0.12;
+          const abOffset = 2.5 * glitchFactor * fullProgress;
+          ctx.globalAlpha = 0.3;
+          ctx.drawImage(avatarRef.current, drawX + offsetDx - abOffset, drawY + offsetDy, drawW, drawH);
+          ctx.drawImage(avatarRef.current, drawX + offsetDx + abOffset, drawY + offsetDy, drawW, drawH);
+        }
+
+        ctx.restore();
+      // 3. Render Precise Scanner Rings & Shockwave HUD
+      const scanX = springRef.current.x;
+      const scanY = springRef.current.y;
       const maxDiagonal = Math.hypot(w, h);
       const effectiveRadius = springRef.current.radius + fullProgress * maxDiagonal;
       const effectiveOpacity = Math.max(springRef.current.opacity, fullProgress);
 
-      // 2. Render AI Portrait (ch2.png) inside expanding reveal region
-      if (effectiveRadius > 1 && effectiveOpacity > 0.01 && img2Ref.current) {
-        const scanX = springRef.current.x;
-        const scanY = springRef.current.y;
-
-        const invBreathe = 1.0 / breathe;
-        const localScanX = w / 2 + (scanX - w / 2) * invBreathe;
-        const localScanY = h / 2 + (scanY - h / 2) * invBreathe;
-        const radiusInLocal = effectiveRadius * invBreathe;
-
-        // Step 2A: Erase base image (ch1.png) inside reveal circle
-        ctx.save();
-        ctx.translate(w / 2, h / 2);
-        ctx.scale(breathe, breathe);
-        ctx.translate(-w / 2, -h / 2);
-
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.beginPath();
-        ctx.arc(localScanX, localScanY, radiusInLocal, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // Step 2B: Draw AI portrait (ch2.png) into revealed region
-        ctx.save();
-        ctx.translate(w / 2, h / 2);
-        ctx.scale(breathe, breathe);
-        ctx.translate(-w / 2, -h / 2);
-
-        ctx.beginPath();
-        ctx.arc(localScanX, localScanY, radiusInLocal, 0, Math.PI * 2);
-        ctx.clip();
-
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = Math.min(1.0, fullProgress > 0 ? fullProgress * 1.5 : 1.0);
-        ctx.drawImage(img2Ref.current, drawX + offsetDx, drawY + offsetDy, drawW, drawH);
-
-        // Chromatic aberration glitch effect inside scanner
-        const glitchFactor = Math.sin(timeRef.current * 8.0) > 0.85 ? 1 : 0.15;
-        const abOffset = 3.0 * glitchFactor * effectiveOpacity;
-        ctx.globalAlpha = 0.35;
-        ctx.drawImage(img2Ref.current, drawX + offsetDx - abOffset, drawY + offsetDy, drawW, drawH);
-        ctx.drawImage(img2Ref.current, drawX + offsetDx + abOffset, drawY + offsetDy, drawW, drawH);
-
-        ctx.restore();
-
-        // 3. Render Precise Scanner Rings & Shockwave HUD
-        ctx.save();
-        ctx.globalAlpha = Math.max(0.2, 1 - fullProgress * 0.8);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.2, 1 - fullProgress * 0.8);
 
         ctx.shadowColor = '#4DA3FF';
         ctx.shadowBlur = 14 * effectiveOpacity;
@@ -435,9 +411,9 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
 
         if (p.isSpark) {
           const dist = Math.hypot(p.x - springRef.current.x, p.y - springRef.current.y);
-          if (dist <= effectiveRadius + 15) {
+          if (dist <= springRef.current.radius + 25) {
             ctx.fillStyle = p.color;
-            ctx.globalAlpha = (p.life / p.maxLife) * effectiveOpacity;
+            ctx.globalAlpha = (p.life / p.maxLife) * Math.max(0.3, fullProgress);
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             ctx.fill();
