@@ -179,34 +179,15 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       if (pane) updateScrollState(pane.scrollTop);
     };
 
-    const handleWheel = (e: WheelEvent) => {
-      const pane = scrollPaneRef.current;
-      if (pane) {
-        const newPos = Math.max(0, Math.min(pane.scrollHeight - pane.clientHeight, pane.scrollTop + e.deltaY));
-        pane.scrollTop = newPos;
-        updateScrollState(newPos); // update immediately, don't wait for scroll event
-      }
-    };
-
-    const handleTouchMove = (_e: TouchEvent) => {
-      // on mobile, rely on scroll event from the pane
-      const pane = scrollPaneRef.current;
-      if (pane) updateScrollState(pane.scrollTop);
-    };
-
     const pane = scrollPaneRef.current;
     if (pane) {
       pane.addEventListener('scroll', handleScroll, { passive: true });
-      pane.addEventListener('touchmove', handleTouchMove, { passive: true });
     }
-    window.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
       if (pane) {
         pane.removeEventListener('scroll', handleScroll);
-        pane.removeEventListener('touchmove', handleTouchMove);
       }
-      window.removeEventListener('wheel', handleWheel);
     };
   }, []);
 

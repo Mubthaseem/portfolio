@@ -20,15 +20,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
   const [loadedMB, setLoadedMB] = useState('0.0');
   const [totalMB, setTotalMB] = useState('46.0');
 
-  // Mobile device detection (specifically mobile phones/tablets, not desktop touchscreens)
-  const isMobileDevice = typeof window !== 'undefined' && (
-    (window.innerWidth < 768 && 'ontouchstart' in window) || 
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  );
-
   useEffect(() => {
-    if (isMobileDevice) return;
-
     let active = true;
 
     const fetchWithProgress = async (): Promise<ArrayBuffer> => {
@@ -187,11 +179,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
     return () => {
       active = false;
     };
-  }, [isMobileDevice]);
-
-  if (isMobileDevice) return null;
-
-  // Main canvas render loop
+  }, []);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
