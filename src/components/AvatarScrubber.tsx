@@ -10,7 +10,6 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
   const videoRef = useRef<HTMLVideoElement>(null);
   const targetTimeRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
-  const lastSeekTimeRef = useRef(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -39,33 +38,18 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
     targetTimeRef.current = clampedProgress * video.duration;
   }, [scrollProgress, isLoaded]);
 
-  // SAFARI & MOBILE MEDIA ENGINE HOT FIX:
-  // Check !video.seeking and throttle seeks to prevent AVPlayer queue overflow crash on mobile iOS/Chrome
+  // 60 FPS GPU lerp seeking loop
   useEffect(() => {
     let active = true;
 
     const updateVideoSeek = () => {
       const video = videoRef.current;
-      const now = Date.now();
-
-      // Ensure video is valid, metadata loaded, NOT currently seeking, and throttled to max ~20 seeks/sec
-      if (
-        video && 
-        video.duration && 
-        !video.seeking && 
-        now - lastSeekTimeRef.current > 40
-      ) {
+      if (video && video.duration) {
         const diff = targetTimeRef.current - video.currentTime;
-        if (Math.abs(diff) > 0.04) {
-          try {
-            video.currentTime += diff * 0.25;
-            lastSeekTimeRef.current = now;
-          } catch (e) {
-            // Ignore temporary media seeking exceptions
-          }
+        if (Math.abs(diff) > 0.005) {
+          video.currentTime += diff * 0.35;
         }
       }
-
       if (active) {
         animFrameRef.current = requestAnimationFrame(updateVideoSeek);
       }
@@ -93,7 +77,7 @@ export default function AvatarScrubber({ scrollProgress, opacity = 1, className 
           muted
           playsInline
           preload="auto"
-          className="w-full h-full object-cover object-top mix-blend-screen pointer-events-none"
+          className="w-full h-full object-cover object-top mix-blend-screen"
         />
         {/* Subtle Cyber Scanlines Overlay */}
         <div 
