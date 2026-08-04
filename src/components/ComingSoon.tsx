@@ -287,7 +287,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       {/* SCROLLABLE CONTENT CONTAINER */}
       <div 
         ref={scrollPaneRef}
-        className="scroll-pane fixed inset-0 w-full h-full z-30 overflow-y-auto scroll-smooth pointer-events-auto md:pointer-events-none px-4 sm:px-6 md:pr-14 md:pl-14 pt-20 sm:pt-24 md:pt-28 pb-16"
+        className="scroll-pane fixed inset-0 w-full h-full z-30 overflow-y-auto scroll-smooth pointer-events-auto px-4 sm:px-6 md:pr-14 md:pl-14 pt-20 sm:pt-24 md:pt-28 pb-16"
       >
         <div className="flex flex-col gap-20 sm:gap-28 md:gap-36 w-full md:max-w-[650px] mx-auto md:ml-auto md:mr-0 pointer-events-auto">
           
