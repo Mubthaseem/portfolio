@@ -7,18 +7,52 @@ interface AvatarGifCanvasProps {
   className?: string;
 }
 
+const CACHE_NAME = 'mubthaseem-avatar-v1';
+const GIF_URL = '/avatar.gif';
+
 export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className = "" }: AvatarGifCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLCanvasElement[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const isFetchingRef = useRef(false);
 
-  // Load and decode GIF into pre-rendered offscreen frame canvases
+  // LAZY LOAD + BROWSER CACHESTORAGE INTEGRATION:
+  // Checks device cache first for 0ms load, downloads only once, and caches persistently!
   useEffect(() => {
+    if (isFetchingRef.current || loaded) return;
+    if (scrollProgress <= 0.01) return;
+
+    isFetchingRef.current = true;
     let active = true;
 
-    fetch('/avatar.gif')
-      .then((res) => res.arrayBuffer())
+    const loadGifArrayBuffer = async (): Promise<ArrayBuffer> => {
+      // 1. Try retrieving from browser CacheStorage
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const cachedResponse = await cache.match(GIF_URL);
+          if (cachedResponse) {
+            return await cachedResponse.arrayBuffer();
+          }
+          // Fetch and store into cache
+          const networkResponse = await fetch(GIF_URL);
+          if (networkResponse.ok) {
+            cache.put(GIF_URL, networkResponse.clone());
+            return await networkResponse.arrayBuffer();
+          }
+        } catch (e) {
+          console.warn("CacheStorage read/write failed, falling back to fetch:", e);
+        }
+      }
+
+      // Fallback: standard network fetch
+      const res = await fetch(GIF_URL);
+      return await res.arrayBuffer();
+    };
+
+    loadGifArrayBuffer()
       .then((buffer) => {
+        if (!active) return;
         const gif = parseGIF(buffer);
         const rawFrames = decompressFrames(gif, true);
 
@@ -33,55 +67,75 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d')!;
 
-        rawFrames.forEach((frame) => {
-          const dims = frame.dims;
-          if (dims) {
-            const framePatch = new ImageData(
-              new Uint8ClampedArray(frame.patch),
-              dims.width,
-              dims.height
-            );
+        // Chunked non-blocking frame decompression (batches of 10)
+        let index = 0;
+        const total = rawFrames.length;
 
-            const patchCanvas = document.createElement('canvas');
-            patchCanvas.width = dims.width;
-            patchCanvas.height = dims.height;
-            const patchCtx = patchCanvas.getContext('2d')!;
-            patchCtx.putImageData(framePatch, 0, 0);
+        const processBatch = () => {
+          if (!active) return;
+          const batchSize = 10;
+          const end = Math.min(index + batchSize, total);
 
-            if (frame.disposalType === 2) {
-              tempCtx.clearRect(dims.left, dims.top, dims.width, dims.height);
+          for (; index < end; index++) {
+            const frame = rawFrames[index];
+            const dims = frame.dims;
+            if (dims) {
+              const framePatch = new ImageData(
+                new Uint8ClampedArray(frame.patch),
+                dims.width,
+                dims.height
+              );
+
+              const patchCanvas = document.createElement('canvas');
+              patchCanvas.width = dims.width;
+              patchCanvas.height = dims.height;
+              const patchCtx = patchCanvas.getContext('2d')!;
+              patchCtx.putImageData(framePatch, 0, 0);
+
+              if (frame.disposalType === 2) {
+                tempCtx.clearRect(dims.left, dims.top, dims.width, dims.height);
+              }
+              tempCtx.drawImage(patchCanvas, dims.left, dims.top);
             }
-            tempCtx.drawImage(patchCanvas, dims.left, dims.top);
+
+            const frameCanvas = document.createElement('canvas');
+            frameCanvas.width = width;
+            frameCanvas.height = height;
+            const frameCtx = frameCanvas.getContext('2d')!;
+            frameCtx.drawImage(tempCanvas, 0, 0);
+            frameCanvases.push(frameCanvas);
           }
 
-          const frameCanvas = document.createElement('canvas');
-          frameCanvas.width = width;
-          frameCanvas.height = height;
-          const frameCtx = frameCanvas.getContext('2d')!;
-          frameCtx.drawImage(tempCanvas, 0, 0);
-          frameCanvases.push(frameCanvas);
-        });
+          if (index < total) {
+            if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+              (window as any).requestIdleCallback(processBatch);
+            } else {
+              setTimeout(processBatch, 16);
+            }
+          } else {
+            if (active) {
+              framesRef.current = frameCanvases;
+              setLoaded(true);
+            }
+          }
+        };
 
-        if (active) {
-          framesRef.current = frameCanvases;
-          setLoaded(true);
-        }
+        processBatch();
       })
       .catch((err) => console.error("Error decoding GIF frames:", err));
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [scrollProgress, loaded]);
 
-  // Main canvas render loop — perfectly aligned with PortraitReveal canvas math + cyber flicker
+  // Canvas render loop — aligned with PortraitReveal canvas math + cyber flicker
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set full screen resolution
     const w = window.innerWidth;
     const h = window.innerHeight;
 
@@ -102,7 +156,6 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
 
     if (!currentFrameCanvas) return;
 
-    // EXACT positioning math matching PortraitReveal.tsx
     const isMobile = w < 768;
     const baseAspect = currentFrameCanvas.width / currentFrameCanvas.height;
 
@@ -114,16 +167,16 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
 
     ctx.save();
 
-    // 1. Cyber Opacity Noise Flicker Effect (0.85 to 1.0 noise on activation/scrolling)
-    const isFlickering = Math.random() > 0.65;
+    // Cyber Opacity Noise Flicker Effect
+    const isFlickering = Math.random() > 0.70;
     const flickerAlpha = isFlickering ? (0.85 + Math.random() * 0.15) : 1.0;
     ctx.globalAlpha = opacity * flickerAlpha;
 
-    // 2. Draw base GIF frame in exact aligned position
+    // Draw base GIF frame in exact aligned position
     ctx.drawImage(currentFrameCanvas, drawX, drawY, drawW, drawH);
 
-    // 3. Cyber Chromatic Glitch Shift (RGB split flicker effect)
-    if (isFlickering && Math.random() > 0.70) {
+    // Cyber Chromatic Glitch Shift
+    if (isFlickering && Math.random() > 0.75) {
       const glitchOffset = (Math.random() - 0.5) * 8;
       const sliceY = drawY + Math.random() * (drawH * 0.6);
       const sliceH = 15 + Math.random() * 30;
@@ -131,7 +184,6 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
       ctx.save();
       ctx.globalAlpha = opacity * 0.75;
       ctx.globalCompositeOperation = 'screen';
-      // Red shift slice
       ctx.drawImage(
         currentFrameCanvas,
         0, (sliceY - drawY) * (currentFrameCanvas.height / drawH),
@@ -142,7 +194,7 @@ export default function AvatarGifCanvas({ scrollProgress, opacity = 1, className
       ctx.restore();
     }
 
-    // 4. Cyber Scanlines Overlay
+    // Cyber Scanlines Overlay
     ctx.save();
     ctx.globalAlpha = opacity * 0.12;
     ctx.fillStyle = '#4DA3FF';
