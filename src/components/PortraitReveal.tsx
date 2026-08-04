@@ -28,13 +28,14 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
 
   const img1Ref = useRef<HTMLImageElement | null>(null);
   const img2Ref = useRef<HTMLImageElement | null>(null);
+  const avatarRef = useRef<HTMLImageElement | null>(null);
 
   const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0, isInside: false });
   const springRef = useRef({ x: 0, y: 0, radius: 0, targetRadius: 0, opacity: 0, targetOpacity: 0 });
   const parallaxRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef(0);
-  const transformProgressRef = useRef(0); // 0 = ch1, 1 = ch2
+  const transformProgressRef = useRef(0); // 0 = ch1, 1 = ch2 / avatar
   const introProgressRef = useRef(0);
   const scrollProgressRef = useRef(0);
 
@@ -46,16 +47,16 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
   }, [scrollProgress]);
 
   useEffect(() => {
-    // Preload 1080p Images
+    // Preload 1080p Images and avatar transformation GIF
     const img1 = new Image();
     const img2 = new Image();
+    const avatar = new Image();
 
     let loadedCount = 0;
     const onImageLoaded = () => {
       loadedCount++;
-      if (loadedCount === 2) {
+      if (loadedCount >= 2) {
         setImagesLoaded(true);
-        // Trigger intro laser scan animation
         gsap.fromTo(
           introProgressRef,
           { current: 0 },
@@ -81,6 +82,9 @@ export default function PortraitReveal({ onHoverStateChange, scrollProgress = 0 
     img2.onerror = onImageError;
     img2.src = '/ch2.png';
     img2Ref.current = img2;
+
+    avatar.src = '/avatar.gif';
+    avatarRef.current = avatar;
 
     const particles: Particle[] = [];
     for (let i = 0; i < maxParticles; i++) {
