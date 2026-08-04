@@ -220,26 +220,23 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
     { id: 'contact', label: 'CONTACT' },
   ];
 
-  // Calculate 65% Viewport Hero Scroll Threshold
-  const heroEl = typeof document !== 'undefined' ? document.getElementById('home') : null;
-  const heroHeight = heroEl ? heroEl.offsetHeight : (typeof window !== 'undefined' ? window.innerHeight : 800);
-  const transitionThreshold = heroHeight * 0.65;
+  // Threshold: 65% of viewport height (simple, no DOM queries)
+  const THRESHOLD = typeof window !== 'undefined' ? window.innerHeight * 0.65 : 500;
+  const FADE_RANGE = 150;
 
-  const isFrozen = currentScrollPos >= transitionThreshold;
+  const isFrozen = currentScrollPos >= THRESHOLD;
 
-  // Static Portrait Opacity: 1 at top, fades to 0 as scroll crosses 65% threshold
-  let portraitOpacity = 1;
-  if (currentScrollPos > transitionThreshold) {
-    portraitOpacity = Math.max(0, 1 - (currentScrollPos - transitionThreshold) / 180);
-  }
+  // Portrait fades out over 150px after threshold
+  const portraitOpacity = currentScrollPos <= THRESHOLD
+    ? 1
+    : Math.max(0, 1 - (currentScrollPos - THRESHOLD) / FADE_RANGE);
 
-  // GIF Opacity: 0 at top, fades to 1 as static portrait disappears; fades to 0 near footer (contact section)
-  let gifOpacity = 0;
-  if (currentScrollPos >= transitionThreshold && scrollProgress < 0.88) {
-    gifOpacity = Math.min(1, (currentScrollPos - transitionThreshold) / 180);
-  } else if (scrollProgress >= 0.88) {
-    gifOpacity = Math.max(0, 1 - (scrollProgress - 0.88) / 0.10);
-  }
+  // GIF fades IN exactly as portrait fades out, fades out near contact
+  const gifOpacity = scrollProgress >= 0.92
+    ? Math.max(0, 1 - (scrollProgress - 0.92) / 0.08)
+    : currentScrollPos < THRESHOLD
+      ? 0
+      : Math.min(1, (currentScrollPos - THRESHOLD) / FADE_RANGE);
 
   return (
     <motion.div
@@ -257,11 +254,12 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         />
       </div>
 
-      {/* STICKY FIXED AVATAR GIF CONTAINER (Desktop 45% width, Mobile responsive) */}
+      {/* STICKY FIXED AVATAR GIF — always in DOM, opacity controlled */}
       <div 
-        className="fixed inset-0 w-full md:w-[45%] h-full z-20 pointer-events-none flex items-center justify-center transition-opacity duration-500 ease-out"
+        className="fixed top-0 left-0 w-full md:w-[45%] h-full z-20 pointer-events-none"
         style={{
           opacity: gifOpacity,
+          transition: 'opacity 300ms ease-out',
           willChange: 'opacity, transform',
           transform: 'translate3d(0,0,0)'
         }}
@@ -269,8 +267,8 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         <img 
           src="/avatar.gif" 
           alt="Mubthaseem Animated Avatar" 
-          className="w-full h-full object-cover max-h-[88vh] md:max-h-[92vh] filter drop-shadow-[0_0_35px_rgba(77,163,255,0.25)]"
-          style={{ willChange: 'opacity, transform' }}
+          className="w-full h-full object-cover object-top"
+          style={{ display: 'block' }}
         />
       </div>
 
