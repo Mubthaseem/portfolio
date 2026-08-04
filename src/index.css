@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@600;800;900&family=Space+Grotesk:wght@300;400;600;700&family=Syncopate:wght@400;700&family=Syne:wght@700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-[#000000]: #000000;
+  --color-primary: #4DA3FF;
+  --color-highlight: #82D6FF;
+  --color-text-main: #F5F8FF;
+  --color-secondary: #6C8AB3;
+
+  --font-sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-syncopate: 'Syncopate', sans-serif;
+  --font-orbitron: 'Orbitron', sans-serif;
+  --font-syne: 'Syne', sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  background-color: #000000;
+  color: #F5F8FF;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000000;
+  user-select: none;
+}
+
+/* Custom Scanlines CSS Overlay */
+.scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 40;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.01),
+    rgba(0, 255, 0, 0.005),
+    rgba(0, 0, 255, 0.01)
+  );
+  background-size: 100% 3px, 6px 100%;
+  opacity: 0.6;
+}
+
+/* Character Scramble CSS Keyframe Utilities */
+.decryption-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+}
+
+.decryption-word {
+  display: flex;
+  gap: 0.15em;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  letter-spacing: 0.25em;
+  color: #F5F8FF;
+  position: relative;
+}
+
+.decryption-letter {
+  position: relative;
+  display: inline-block;
+  min-width: 0.8em;
+  text-align: center;
+  transition: color 0.3s ease;
+}
+
+.decryption-letter.scrambling {
+  color: #6C8AB3;
+  opacity: 0.7;
+}
+
+.decryption-letter.locked {
+  color: #F5F8FF;
+  text-shadow: 0 0 15px #4DA3FF, 0 0 30px #82D6FF;
+}
+
+/* Flash effect on lock */
+.letter-flash {
+  position: absolute;
+  inset: -5px;
+  background: radial-gradient(circle, rgba(130, 214, 255, 0.8) 0%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease-out;
+}
+
+.letter-flash-active {
+  opacity: 1;
+}
+
+/* Scan line on individual letter lock */
+.letter-scan-line {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #82D6FF;
+  box-shadow: 0 0 10px #82D6FF;
+  transform: scaleX(0);
+  transition: transform 0.3s ease-out;
+}
+
+.letter-scan-active {
+  transform: scaleX(1);
+}
+
+/* Left-to-Right Full Swipe Laser Beam */
+.scan-beam {
+  position: absolute;
+  top: -20%;
+  height: 140%;
+  width: 3px;
+  background: #82D6FF;
+  box-shadow: 0 0 15px #4DA3FF, 0 0 30px #82D6FF;
+  opacity: 0;
+  pointer-events: none;
+}
