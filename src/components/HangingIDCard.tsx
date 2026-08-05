@@ -7,16 +7,20 @@ interface HangingIDCardProps {
 
 export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const swingWrapperRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const leftCordRef = useRef<SVGPathElement>(null);
+  const rightCordRef = useRef<SVGPathElement>(null);
+  const shadowRef = useRef<HTMLDivElement>(null);
   
   const [isHovered, setIsHovered] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-  // Physics refs
-  const swingAngle = useRef(0);
-  const swingVelocity = useRef(0);
-  const mouseForce = useRef(0);
-  const scrollForce = useRef(0);
+  // Physics refs (solving directly for X displacement in pixels)
+  const swingX = useRef(0);
+  const swingXVelocity = useRef(0);
+  const mouseForceX = useRef(0);
+  const scrollForceX = useRef(0);
   
   // Dragging refs for mobile touch and desktop mouse click-and-drag
   const isDragging = useRef(false);
@@ -24,7 +28,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const dragX = useRef(0);
   const lastTouchX = useRef(0);
   const lastTouchTime = useRef(0);
-  const dragVelocity = useRef(0);
+  const dragVelocityX = useRef(0);
 
   // Previous states for delta tracking
   const prevMouseX = useRef<number | null>(null);
@@ -36,15 +40,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   // Unified drag lifecycle handlers
   const startDrag = (clientX: number) => {
     isDragging.current = true;
-    
-    // Initialize starting offset from the current angle position to prevent visual jump/snap
-    const initialDragX = PENDULUM_RADIUS * Math.sin(swingAngle.current * Math.PI / 180);
-    touchStartX.current = clientX - initialDragX;
-    
-    dragX.current = initialDragX;
+    touchStartX.current = clientX - swingX.current;
     lastTouchX.current = clientX;
     lastTouchTime.current = performance.now();
-    dragVelocity.current = 0;
+    dragVelocityX.current = 0;
   };
 
   const moveDrag = (clientX: number) => {
@@ -52,12 +51,11 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const now = performance.now();
     const dt = now - lastTouchTime.current;
 
-    // Calculate instantaneous velocity to transfer on release
+    // Calculate instantaneous swipe velocity
     if (dt > 0) {
-      dragVelocity.current = (clientX - lastTouchX.current) / dt;
+      dragVelocityX.current = (clientX - lastTouchX.current) / dt;
     }
 
-    // Update drag horizontal displacement
     dragX.current = clientX - touchStartX.current;
     lastTouchX.current = clientX;
     lastTouchTime.current = now;
@@ -67,15 +65,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    // Convert release drag velocity to pendulum swing velocity: omega = v / L
-    const angularSpeedRad = dragVelocity.current / PENDULUM_RADIUS;
-    const angularSpeedDeg = angularSpeedRad * (180 / Math.PI);
-    
-    // Apply swing velocity (multiplied by a tuning factor for physical feel)
-    swingVelocity.current = angularSpeedDeg * 15.0;
-    
-    // Clamp the initial velocity to prevent excessive spinning loops
-    swingVelocity.current = Math.min(12, Math.max(-12, swingVelocity.current));
+    // Apply the release drag velocity directly to the swing velocity (with a tuning factor)
+    swingXVelocity.current = dragVelocityX.current * 15.0;
+    // Clamp velocity to prevent flying off screen
+    swingXVelocity.current = Math.min(25, Math.max(-25, swingXVelocity.current));
 
     dragX.current = 0;
   };
@@ -84,16 +77,17 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const container = containerRef.current;
     if (!container) return;
 
-    // 1. Entrance animation using GSAP (String appears, card drops and swings)
+    // 1. Entrance animation using GSAP (String appears, card drops and sways)
     gsap.fromTo(container, 
-      { y: -300, rotate: 22 }, 
+      { y: -300 }, 
       { 
         y: 0, 
-        rotate: 0, 
         duration: 1.8, 
         ease: "elastic.out(1.1, 0.55)",
         onComplete: () => {
           prevScrollY.current = window.scrollY;
+          // Trigger an initial swing force for organic entrance feel
+          swingXVelocity.current = 15;
         }
       }
     );
@@ -105,41 +99,59 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const updatePhysics = () => {
       time += 0.015;
 
-      // A. Constant tiny idle pendulum movement (-1.8deg to 1.8deg, 4s cycle)
-      const idleAngle = Math.sin(time * (Math.PI / 2)) * 1.8;
+      // A. Constant tiny idle swing (oscillates X coordinate smoothly by +/- 4px)
+      const idleX = Math.sin(time * (Math.PI / 2)) * 4;
 
       if (isDragging.current) {
-        // B1. Dragging: Card sways horizontally following the finger/mouse displacement
-        // Clamp drag offset to prevent rotating the card past 58 degrees
-        const maxDragOffset = PENDULUM_RADIUS * Math.sin(58 * Math.PI / 180);
-        const clampedDragX = Math.min(maxDragOffset, Math.max(-maxDragOffset, dragX.current));
-        
-        // Convert the horizontal displacement to rotation angle: theta = asin(x / L)
-        const targetDragAngle = Math.asin(clampedDragX / PENDULUM_RADIUS) * (180 / Math.PI);
-        
-        // Easing factor to interpolate rotation smoothly
-        swingAngle.current += (targetDragAngle - swingAngle.current) * 0.25;
-        swingVelocity.current = 0; 
+        // B1. Dragging: Card position X directly follows finger/mouse displacement
+        // Clamp X translation so it doesn't drag off the screen boundaries (max +/- 115px)
+        const clampedDragX = Math.min(115, Math.max(-115, dragX.current));
+        swingX.current += (clampedDragX - swingX.current) * 0.25;
+        swingXVelocity.current = 0; 
       } else {
-        // B2. If released, use spring solver physics
+        // B2. Spring solver physics for release swing
         const stiffness = 0.08;
         const damping = 0.92;
 
         // Decay interactive forces
-        mouseForce.current *= 0.92;
-        scrollForce.current *= 0.90;
+        mouseForceX.current *= 0.92;
+        scrollForceX.current *= 0.90;
 
-        const targetAngle = idleAngle + mouseForce.current + scrollForce.current;
+        const targetX = idleX + mouseForceX.current + scrollForceX.current;
 
         // Spring physics solver (Verlet-style)
-        const acceleration = (targetAngle - swingAngle.current) * stiffness;
-        swingVelocity.current = (swingVelocity.current + acceleration) * damping;
-        swingAngle.current += swingVelocity.current;
+        const acceleration = (targetX - swingX.current) * stiffness;
+        swingXVelocity.current = (swingXVelocity.current + acceleration) * damping;
+        swingX.current += swingXVelocity.current;
       }
 
-      // Apply the swing rotation centered on the top edge anchor point (transformOrigin: 50% 0%)
-      if (container) {
-        container.style.transform = `rotate(${swingAngle.current}deg)`;
+      // C. Calculate geometry outputs (rotation angle and vertical lift)
+      // Based on pendulum circular arc: y = L - sqrt(L^2 - x^2)
+      const L = PENDULUM_RADIUS;
+      const clampedX = Math.min(L - 5, Math.max(-L + 5, swingX.current));
+      const liftY = L - Math.sqrt(L * L - clampedX * clampedX);
+      const angle = Math.asin(clampedX / L) * (180 / Math.PI);
+
+      // D. Update Swing Wrapper Transform (X translation, Y lift, and pendulum rotation)
+      if (swingWrapperRef.current) {
+        swingWrapperRef.current.style.transform = `translate3d(${swingX.current}px, ${liftY}px, 0) rotate(${angle}deg)`;
+      }
+
+      // E. Update SVG Cords (Dynamic endpoints stretch to meet clip)
+      if (leftCordRef.current && rightCordRef.current) {
+        // Left cord: fixed at (45, 0) -> ends at (52 + swingX, 55 + liftY)
+        // Q control point curves slightly based on swing magnitude
+        leftCordRef.current.setAttribute('d', `M 45,0 Q ${47 + swingX.current * 0.4},28 ${52 + swingX.current},${55 + liftY}`);
+        
+        // Right cord: fixed at (75, 0) -> ends at (68 + swingX, 55 + liftY)
+        rightCordRef.current.setAttribute('d', `M 75,0 Q ${73 + swingX.current * 0.4},28 ${68 + swingX.current},${55 + liftY}`);
+      }
+
+      // F. Update Shadow Position (parallax displacement opposite to swing)
+      if (shadowRef.current) {
+        const shadowX = -Math.sin((angle * Math.PI) / 180) * 18 + swingX.current;
+        const shadowY = 12 + Math.abs(angle) * 0.5 + liftY;
+        shadowRef.current.style.transform = `translate3d(${shadowX}px, ${shadowY}px, -20px) scale(${isHovered ? 1.02 : 1})`;
       }
 
       animationFrameId = requestAnimationFrame(updatePhysics);
@@ -147,15 +159,14 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
     animationFrameId = requestAnimationFrame(updatePhysics);
 
-    // 3. Mouse / Move Handler (Differentiates between dragging and idle swiping)
+    // 3. Mouse Move Handler (Momentum opposite to cursor direction when idle)
     const handleMouseMoveGlobal = (e: MouseEvent) => {
       if (isDragging.current) {
         moveDrag(e.clientX);
       } else if (prevMouseX.current !== null) {
-        // Idle swing momentum based on overall cursor swipes
         const deltaX = e.clientX - prevMouseX.current;
-        mouseForce.current -= deltaX * 0.12;
-        mouseForce.current = Math.min(15, Math.max(-15, mouseForce.current));
+        mouseForceX.current -= deltaX * 0.25; // Scale mouse swipe force
+        mouseForceX.current = Math.min(60, Math.max(-60, mouseForceX.current));
       }
       prevMouseX.current = e.clientX;
     };
@@ -166,7 +177,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
       }
     };
 
-    // 4. Scroll Momentum Tracker (Sways slightly upward on scroll)
+    // 4. Scroll Momentum Tracker (Sways card on scroll delta)
     const handleScrollGlobal = () => {
       const pane = document.querySelector('.scroll-pane');
       const currentScroll = pane ? pane.scrollTop : window.scrollY;
@@ -174,8 +185,8 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
       if (Math.abs(deltaY) > 0.5) {
         const direction = deltaY > 0 ? 1 : -1;
-        scrollForce.current += direction * Math.min(6, Math.abs(deltaY) * 0.08);
-        scrollForce.current = Math.min(8, Math.max(-8, scrollForce.current));
+        scrollForceX.current += direction * Math.min(25, Math.abs(deltaY) * 0.35);
+        scrollForceX.current = Math.min(45, Math.max(-45, scrollForceX.current));
       }
       prevScrollY.current = currentScroll;
     };
@@ -202,7 +213,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
   // 5. 3D Hover Tilt calculations (Desktops)
   const handleMouseMoveCard = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only apply hover tilt if we are not actively dragging
     if (isDragging.current) return;
     
     const card = cardRef.current;
@@ -229,16 +239,16 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   return (
     <div 
       ref={containerRef}
-      className="fixed top-0 z-40 flex flex-col items-center select-none will-change-transform animate-fade-in"
+      className="fixed top-0 z-40 flex flex-col items-center select-none"
       style={{ 
         left: `${leftOffset}px`,
-        transformOrigin: '50% 0%',
         width: '120px'
       }}
     >
-      {/* A. Suspended Cords System */}
-      <svg width="120" height="55" className="overflow-visible pointer-events-none">
+      {/* A. Suspended Cords System - top points remain fixed at (45,0) and (75,0) */}
+      <svg width="120" height="55" className="overflow-visible pointer-events-none absolute top-0 left-0">
         <path 
+          ref={leftCordRef}
           d="M 45,0 Q 47,28 52,55" 
           stroke="#3d3d3d" 
           strokeWidth="1.8" 
@@ -246,6 +256,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
           strokeLinecap="round"
         />
         <path 
+          ref={rightCordRef}
           d="M 75,0 Q 73,28 68,55" 
           stroke="#3d3d3d" 
           strokeWidth="1.8" 
@@ -254,44 +265,67 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         />
       </svg>
 
-      {/* B. Metallic Badge Clip */}
+      {/* B. Interactive Card Shadow - shifts parallax-style */}
       <div 
-        className="w-5 h-2.5 bg-gradient-to-b from-[#6b7280] via-[#9ca3af] to-[#4b5563] border border-white/10 rounded-[1px] relative shadow-md"
-        style={{ marginTop: '-2px', zIndex: 2 }}
+        ref={shadowRef}
+        className="absolute bg-black/80 rounded-[10px] pointer-events-none filter blur-[15px] transition-all duration-300"
+        style={{
+          width: '75px',
+          height: '130px',
+          top: '64px',
+          left: '22px',
+          opacity: 0.18,
+          zIndex: 0
+        }}
       />
 
-      {/* C. ID Card Body - Clean transparent PNG wrapper */}
-      <div
-        ref={cardRef}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseMove={handleMouseMoveCard}
-        onMouseLeave={handleMouseLeaveCard}
-        onTouchStart={(e) => startDrag(e.touches[0].clientX)}
-        onTouchMove={(e) => moveDrag(e.touches[0].clientX)}
-        onTouchEnd={endDrag}
-        onMouseDown={(e) => {
-          if (e.button === 0) { // Only drag with left click
-            e.preventDefault();
-            startDrag(e.clientX);
-          }
-        }}
-        className="relative cursor-grab active:cursor-grabbing transition-transform duration-300 pointer-events-auto mix-blend-screen touch-none"
-        style={{
-          width: '100px',
-          height: '142px',
-          marginTop: '-1px',
-          transform: `perspective(500px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovered ? 1.05 : 1})`,
-          transformStyle: 'preserve-3d',
-          willChange: 'transform',
-          zIndex: 1
+      {/* C. Swing Wrapper: Translates and rotates based on the pendulum physics solver */}
+      <div 
+        ref={swingWrapperRef}
+        className="flex flex-col items-center will-change-transform"
+        style={{ 
+          transformOrigin: '50% 0%', 
+          marginTop: '55px' 
         }}
       >
-        {/* The PNG ID Card artwork */}
-        <img 
-          src="/IDCARD.png" 
-          alt="ID Card Badge" 
-          className="w-full h-full object-cover pointer-events-none"
+        {/* Clip (moves with the card) */}
+        <div 
+          className="w-5 h-2.5 bg-gradient-to-b from-[#6b7280] via-[#9ca3af] to-[#4b5563] border border-white/10 rounded-[1px] relative shadow-md"
+          style={{ marginTop: '-2px', zIndex: 2 }}
         />
+
+        {/* Card Body - Drag/touch target */}
+        <div
+          ref={cardRef}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseMove={handleMouseMoveCard}
+          onMouseLeave={handleMouseLeaveCard}
+          onTouchStart={(e) => startDrag(e.touches[0].clientX)}
+          onTouchMove={(e) => moveDrag(e.touches[0].clientX)}
+          onTouchEnd={endDrag}
+          onMouseDown={(e) => {
+            if (e.button === 0) { // Only drag with left click
+              e.preventDefault();
+              startDrag(e.clientX);
+            }
+          }}
+          className="relative cursor-grab active:cursor-grabbing transition-transform duration-300 pointer-events-auto mix-blend-screen touch-none"
+          style={{
+            width: '100px',
+            height: '142px',
+            marginTop: '-1px',
+            transform: `perspective(500px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovered ? 1.05 : 1})`,
+            transformStyle: 'preserve-3d',
+            willChange: 'transform',
+            zIndex: 1
+          }}
+        >
+          <img 
+            src="/IDCARD.png" 
+            alt="ID Card Badge" 
+            className="w-full h-full object-cover pointer-events-none"
+          />
+        </div>
       </div>
     </div>
   );
