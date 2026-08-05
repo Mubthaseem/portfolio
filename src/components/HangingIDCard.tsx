@@ -18,7 +18,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const mouseForce = useRef(0);
   const scrollForce = useRef(0);
   
-  // Touch dragging refs for mobile (horizontal swing drag)
+  // Dragging refs for mobile touch and desktop mouse click-and-drag
   const isDragging = useRef(false);
   const touchStartX = useRef(0);
   const dragX = useRef(0);
@@ -32,6 +32,53 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
   // L = 136px is the pendulum radius from the top window anchor to the center of the card
   const PENDULUM_RADIUS = 136;
+
+  // Unified drag lifecycle handlers
+  const startDrag = (clientX: number) => {
+    isDragging.current = true;
+    
+    // Initialize starting offset from the current angle position to prevent visual jump/snap
+    const initialDragX = PENDULUM_RADIUS * Math.sin(swingAngle.current * Math.PI / 180);
+    touchStartX.current = clientX - initialDragX;
+    
+    dragX.current = initialDragX;
+    lastTouchX.current = clientX;
+    lastTouchTime.current = performance.now();
+    dragVelocity.current = 0;
+  };
+
+  const moveDrag = (clientX: number) => {
+    if (!isDragging.current) return;
+    const now = performance.now();
+    const dt = now - lastTouchTime.current;
+
+    // Calculate instantaneous velocity to transfer on release
+    if (dt > 0) {
+      dragVelocity.current = (clientX - lastTouchX.current) / dt;
+    }
+
+    // Update drag horizontal displacement
+    dragX.current = clientX - touchStartX.current;
+    lastTouchX.current = clientX;
+    lastTouchTime.current = now;
+  };
+
+  const endDrag = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    // Convert release drag velocity to pendulum swing velocity: omega = v / L
+    const angularSpeedRad = dragVelocity.current / PENDULUM_RADIUS;
+    const angularSpeedDeg = angularSpeedRad * (180 / Math.PI);
+    
+    // Apply swing velocity (multiplied by a tuning factor for physical feel)
+    swingVelocity.current = angularSpeedDeg * 15.0;
+    
+    // Clamp the initial velocity to prevent excessive spinning loops
+    swingVelocity.current = Math.min(12, Math.max(-12, swingVelocity.current));
+
+    dragX.current = 0;
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -62,7 +109,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
       const idleAngle = Math.sin(time * (Math.PI / 2)) * 1.8;
 
       if (isDragging.current) {
-        // B1. Dragging: Card sways horizontally following the finger displacement
+        // B1. Dragging: Card sways horizontally following the finger/mouse displacement
         // Clamp drag offset to prevent rotating the card past 58 degrees
         const maxDragOffset = PENDULUM_RADIUS * Math.sin(58 * Math.PI / 180);
         const clampedDragX = Math.min(maxDragOffset, Math.max(-maxDragOffset, dragX.current));
@@ -72,9 +119,9 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         
         // Easing factor to interpolate rotation smoothly
         swingAngle.current += (targetDragAngle - swingAngle.current) * 0.25;
-        swingVelocity.current = 0; // reset velocity during active drag
+        swingVelocity.current = 0; 
       } else {
-        // B2. Spring solver physics
+        // B2. If released, use spring solver physics
         const stiffness = 0.08;
         const damping = 0.92;
 
@@ -100,14 +147,23 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
     animationFrameId = requestAnimationFrame(updatePhysics);
 
-    // 3. Mouse Velocity Tracker (Momentum opposite to cursor direction)
+    // 3. Mouse / Move Handler (Differentiates between dragging and idle swiping)
     const handleMouseMoveGlobal = (e: MouseEvent) => {
-      if (prevMouseX.current !== null) {
+      if (isDragging.current) {
+        moveDrag(e.clientX);
+      } else if (prevMouseX.current !== null) {
+        // Idle swing momentum based on overall cursor swipes
         const deltaX = e.clientX - prevMouseX.current;
         mouseForce.current -= deltaX * 0.12;
         mouseForce.current = Math.min(15, Math.max(-15, mouseForce.current));
       }
       prevMouseX.current = e.clientX;
+    };
+
+    const handleMouseUpGlobal = () => {
+      if (isDragging.current) {
+        endDrag();
+      }
     };
 
     // 4. Scroll Momentum Tracker (Sways slightly upward on scroll)
@@ -125,6 +181,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     };
 
     window.addEventListener('mousemove', handleMouseMoveGlobal);
+    window.addEventListener('mouseup', handleMouseUpGlobal);
     window.addEventListener('scroll', handleScrollGlobal);
     
     const pane = document.querySelector('.scroll-pane');
@@ -135,6 +192,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('mousemove', handleMouseMoveGlobal);
+      window.removeEventListener('mouseup', handleMouseUpGlobal);
       window.removeEventListener('scroll', handleScrollGlobal);
       if (pane) {
         pane.removeEventListener('scroll', handleScrollGlobal);
@@ -144,6 +202,9 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
   // 5. 3D Hover Tilt calculations (Desktops)
   const handleMouseMoveCard = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only apply hover tilt if we are not actively dragging
+    if (isDragging.current) return;
+    
     const card = cardRef.current;
     if (!card) return;
 
@@ -163,54 +224,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const handleMouseLeaveCard = () => {
     setIsHovered(false);
     setTilt({ x: 0, y: 0 });
-  };
-
-  // 6. Touch Drag Event Handlers for Mobile (X-direction swing)
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    const touch = e.touches[0];
-    isDragging.current = true;
-    
-    // Initialize starting offset from the current angle position to prevent visual jump/snap
-    const initialDragX = PENDULUM_RADIUS * Math.sin(swingAngle.current * Math.PI / 180);
-    touchStartX.current = touch.clientX - initialDragX;
-    
-    dragX.current = initialDragX;
-    lastTouchX.current = touch.clientX;
-    lastTouchTime.current = performance.now();
-    dragVelocity.current = 0;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isDragging.current) return;
-    const touch = e.touches[0];
-    const now = performance.now();
-    const dt = now - lastTouchTime.current;
-
-    if (dt > 0) {
-      dragVelocity.current = (touch.clientX - lastTouchX.current) / dt;
-    }
-
-    dragX.current = touch.clientX - touchStartX.current;
-    lastTouchX.current = touch.clientX;
-    lastTouchTime.current = now;
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    // Convert finger swipe speed to angular velocity: omega = v / L
-    // Then convert to degree-based velocity for the spring solver
-    const angularSpeedRad = dragVelocity.current / PENDULUM_RADIUS;
-    const angularSpeedDeg = angularSpeedRad * (180 / Math.PI);
-    
-    // Apply swing velocity (multiplied by a tuning factor for physical feel)
-    swingVelocity.current = angularSpeedDeg * 15.0;
-    
-    // Clamp the initial velocity to prevent excessive spinning loops
-    swingVelocity.current = Math.min(12, Math.max(-12, swingVelocity.current));
-
-    dragX.current = 0;
   };
 
   return (
@@ -253,10 +266,16 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseMove={handleMouseMoveCard}
         onMouseLeave={handleMouseLeaveCard}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className="relative cursor-pointer transition-transform duration-300 pointer-events-auto mix-blend-screen touch-none"
+        onTouchStart={(e) => startDrag(e.touches[0].clientX)}
+        onTouchMove={(e) => moveDrag(e.touches[0].clientX)}
+        onTouchEnd={endDrag}
+        onMouseDown={(e) => {
+          if (e.button === 0) { // Only drag with left click
+            e.preventDefault();
+            startDrag(e.clientX);
+          }
+        }}
+        className="relative cursor-grab active:cursor-grabbing transition-transform duration-300 pointer-events-auto mix-blend-screen touch-none"
         style={{
           width: '100px',
           height: '142px',
