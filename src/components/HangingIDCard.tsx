@@ -11,7 +11,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   
   const [isHovered, setIsHovered] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [glarePos, setGlarePos] = useState({ x: 0, y: 0 });
 
   // Physics refs
   const swingAngle = useRef(0);
@@ -61,14 +60,11 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
       if (isDragging.current) {
         // B1. If dragging via touch, target angle follows drag offset directly
-        // Pendulum angle is calculated using atan2(x, L) where L=75px is the pivot length
         const targetDragAngle = Math.atan2(dragX.current, 75) * (180 / Math.PI);
-        // Clamp drag angle to prevent wrapping around the top anchor (max 45deg)
         const clampedDragAngle = Math.min(45, Math.max(-45, targetDragAngle));
         
-        // Smoothly ease the swing angle toward the finger position
         swingAngle.current += (clampedDragAngle - swingAngle.current) * 0.25;
-        swingVelocity.current = 0; // reset physics velocity while dragging
+        swingVelocity.current = 0; 
       } else {
         // B2. If released, use spring solver physics
         const stiffness = 0.08;
@@ -142,7 +138,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     };
   }, []);
 
-  // 5. 3D Hover Tilt & Glare position calculations (Desktops)
+  // 5. 3D Hover Tilt calculations (Desktops)
   const handleMouseMoveCard = (e: React.MouseEvent<HTMLDivElement>) => {
     const card = cardRef.current;
     if (!card) return;
@@ -157,11 +153,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     setTilt({
       x: -py * 6,
       y: px * 8
-    });
-
-    setGlarePos({
-      x: (x / rect.width) * 100,
-      y: (y / rect.height) * 100
     });
   };
 
@@ -186,12 +177,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const now = performance.now();
     const dt = now - lastTouchTime.current;
 
-    // Calculate instantaneous velocity to transfer on release
     if (dt > 0) {
       dragVelocity.current = (touch.clientX - lastTouchX.current) / dt;
     }
 
-    // Update drag horizontal displacement
     dragX.current = touch.clientX - touchStartX.current;
     lastTouchX.current = touch.clientX;
     lastTouchTime.current = now;
@@ -201,19 +190,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    // Convert release drag velocity to pendulum swing velocity
-    // Multiply by a factor to match the physics velocity scale
     swingVelocity.current = dragVelocity.current * 12.0;
-    
-    // Clamp the initial release velocity to prevent wild rotation loops
     swingVelocity.current = Math.min(10, Math.max(-10, swingVelocity.current));
-
-    // Reset drag offsets
     dragX.current = 0;
   };
-
-  const shadowX = -Math.sin((swingAngle.current * Math.PI) / 180) * 18;
-  const shadowY = 12 + Math.abs(swingAngle.current) * 0.5;
 
   return (
     <div 
@@ -249,21 +229,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         style={{ marginTop: '-2px', zIndex: 2 }}
       />
 
-      {/* C. Interactive Card Shadow */}
-      <div 
-        className="absolute bg-black/80 rounded-[10px] pointer-events-none filter blur-[15px] transition-all duration-300"
-        style={{
-          width: '75px',
-          height: '130px',
-          top: '64px',
-          left: '22px',
-          opacity: 0.18,
-          transform: `translate3d(${shadowX}px, ${shadowY}px, -20px) scale(${isHovered ? 1.02 : 1})`,
-          zIndex: 0
-        }}
-      />
-
-      {/* D. ID Card Body */}
+      {/* C. ID Card Body - Clean transparent PNG wrapper */}
       <div
         ref={cardRef}
         onMouseEnter={() => setIsHovered(true)}
@@ -272,18 +238,14 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="relative cursor-pointer transition-all duration-300 pointer-events-auto mix-blend-screen touch-none"
+        className="relative cursor-pointer transition-transform duration-300 pointer-events-auto mix-blend-screen touch-none"
         style={{
           width: '100px',
           height: '142px',
           marginTop: '-1px',
           transform: `perspective(500px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovered ? 1.05 : 1})`,
           transformStyle: 'preserve-3d',
-          boxShadow: isHovered 
-            ? '0 0 20px rgba(77, 163, 255, 0.25)' 
-            : 'none',
-          filter: isHovered ? 'brightness(1.06)' : 'brightness(1.0)',
-          willChange: 'transform, filter',
+          willChange: 'transform',
           zIndex: 1
         }}
       >
@@ -291,46 +253,9 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         <img 
           src="/IDCARD.png" 
           alt="ID Card Badge" 
-          className="w-full h-full object-cover rounded-[10px] pointer-events-none"
-        />
-
-        {/* E. Laminated Plastic Reflection / Glare Effects */}
-        {isHovered && (
-          <div 
-            className="absolute inset-0 pointer-events-none mix-blend-overlay"
-            style={{
-              background: `radial-gradient(circle 75px at ${glarePos.x}% ${glarePos.y}%, rgba(255, 255, 255, 0.25) 0%, transparent 100%)`
-            }}
-          />
-        )}
-
-        <div 
-          className="absolute inset-0 pointer-events-none mix-blend-overlay animate-glare-sweep"
-          style={{
-            background: 'linear-gradient(135deg, transparent 35%, rgba(255, 255, 255, 0.08) 50%, transparent 65%)',
-            backgroundSize: '300% 100%',
-          }}
-        />
-
-        {/* F. Premium Laminated Plastic Scratches Overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.06] pointer-events-none bg-repeat"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-          }}
+          className="w-full h-full object-cover pointer-events-none"
         />
       </div>
-
-      <style>{`
-        @keyframes glareSweep {
-          0% { background-position: -150% 0; }
-          15% { background-position: 250% 0; }
-          100% { background-position: 250% 0; }
-        }
-        .animate-glare-sweep {
-          animation: glareSweep 9s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }
