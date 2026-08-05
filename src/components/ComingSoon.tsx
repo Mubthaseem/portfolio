@@ -4,8 +4,8 @@ import {
   MapPin, ExternalLink, Code2, Terminal, Cpu, Sparkles, Send, Mail, Globe, Share2,
   Layers, Activity, ShieldCheck, Download, Tv, Utensils, ChevronRight, Zap, Radio, X
 } from 'lucide-react';
-// import PortraitReveal from './PortraitReveal';
 import AvatarUnifiedScrubber from './AvatarUnifiedScrubber';
+import HangingIDCard from './HangingIDCard';
 
 interface ComingSoonProps {
   isVisible: boolean;
@@ -223,6 +223,9 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         opacity={scrubberOpacity}
         className="z-5 mix-blend-screen"
       />
+
+      {/* Futuristic Hanging UI ID Card */}
+      <HangingIDCard />
 
       <motion.div
         initial={{ opacity: 0 }}
