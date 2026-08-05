@@ -237,7 +237,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       <AvatarUnifiedScrubber
         scrollProgress={scrollProgress}
         opacity={scrubberOpacity}
-        className="z-20"
+        className="z-20 mix-blend-screen"
       />
 
       {/* FIXED TOP HEADER & NAVIGATION OS BAR */}
