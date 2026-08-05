@@ -15,7 +15,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   // Physics refs (solving directly for X translation of the entire element)
   const currentX = useRef(0);
   const velocityX = useRef(0);
-  const mouseForceX = useRef(0);
   
   // Dragging refs for touch and desktop mouse click-and-drag
   const isDragging = useRef(false);
@@ -24,9 +23,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const lastTouchX = useRef(0);
   const lastTouchTime = useRef(0);
   const dragVelocityX = useRef(0);
-
-  // Previous states for delta tracking
-  const prevMouseX = useRef<number | null>(null);
 
   // Unified drag lifecycle handlers
   const startDrag = (clientX: number) => {
@@ -55,9 +51,9 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    // Apply the swipe velocity to the spring movement on release
-    velocityX.current = dragVelocityX.current * 12.0;
-    velocityX.current = Math.min(25, Math.max(-25, velocityX.current));
+    // Apply swipe velocity to slide the card with inertia on release
+    velocityX.current = dragVelocityX.current * 10.0;
+    velocityX.current = Math.min(20, Math.max(-20, velocityX.current));
 
     dragX.current = 0;
   };
@@ -74,8 +70,8 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         duration: 1.6, 
         ease: "elastic.out(1.1, 0.6)",
         onComplete: () => {
-          // Add a small initial slide force on entry
-          velocityX.current = 8;
+          // Subtle slide nudge on entry
+          velocityX.current = 6;
         }
       }
     );
@@ -87,27 +83,22 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const updatePhysics = () => {
       time += 0.015;
 
-      // Subtle perpetual idle rotation on the card itself (the "point swinging animation")
-      // Very small swing angle (-1.5deg to 1.5deg, 4s duration)
+      // Subtle perpetual idle rotation on the card itself (point swinging animation)
       const idleRotation = Math.sin(time * (Math.PI / 2)) * 1.5;
 
       if (isDragging.current) {
-        // Dragging: entire container X follows the mouse/finger directly
-        // Clamp drag X position so it stays within a reasonable screen range
-        const clampedDragX = Math.min(180, Math.max(-180, dragX.current));
-        currentX.current += (clampedDragX - currentX.current) * 0.3; // High follow sensitivity
+        // Dragging: follows finger/mouse X coordinate directly
+        const clampedDragX = Math.min(220, Math.max(-220, dragX.current));
+        currentX.current += (clampedDragX - currentX.current) * 0.3;
         velocityX.current = 0;
       } else {
-        // Release: slide back to center (0) using spring physics
-        const stiffness = 0.06;
-        const damping = 0.90;
-
-        mouseForceX.current *= 0.92;
-        const targetX = mouseForceX.current;
-
-        const acceleration = (targetX - currentX.current) * stiffness;
-        velocityX.current = (velocityX.current + acceleration) * damping;
+        // Released: stays exactly where placed (locks position).
+        // Decay any leftover release flick velocity to zero using friction (0.88 decay)
+        velocityX.current *= 0.88;
         currentX.current += velocityX.current;
+
+        // Clamp to keep it within safe bounds on screen
+        currentX.current = Math.min(220, Math.max(-220, currentX.current));
       }
 
       // Translate the entire container (chain + clip + card) in X direction
@@ -125,17 +116,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
 
     animationFrameId = requestAnimationFrame(updatePhysics);
 
-    // 3. Global Mouse Listener for dragging and idle swipe pushes
     const handleMouseMoveGlobal = (e: MouseEvent) => {
       if (isDragging.current) {
         moveDrag(e.clientX);
-      } else if (prevMouseX.current !== null) {
-        const deltaX = e.clientX - prevMouseX.current;
-        // Minor push force when cursor swipes across the screen
-        mouseForceX.current -= deltaX * 0.15;
-        mouseForceX.current = Math.min(40, Math.max(-40, mouseForceX.current));
       }
-      prevMouseX.current = e.clientX;
     };
 
     const handleMouseUpGlobal = () => {
@@ -154,7 +138,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     };
   }, [tilt, isHovered]);
 
-  // 4. 3D Hover Tilt calculations (Desktops)
+  // 3. 3D Hover Tilt calculations (Desktops)
   const handleMouseMoveCard = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isDragging.current) return;
     
