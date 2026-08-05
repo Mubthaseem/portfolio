@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Admin Panel (No commit to Github)
+scripts/admin_server.cjs
+public/admin.html
+public/portfolio_local.json
