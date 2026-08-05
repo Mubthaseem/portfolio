@@ -1,0 +1,312 @@
+{
+  "profile": {
+    "name": "MUBTHASEEM",
+    "role": "Self-Taught Developer & Designer",
+    "location": "Kerala, India",
+    "availability": "OPEN TO INQUIRIES",
+    "bio": "A self-taught developer and designer crafting scalable applications, custom Smart TV systems, and high-performance interactive interfaces.",
+    "email": "mubthaseem@example.com",
+    "resumeUrl": "#"
+  },
+  "techStack": [
+    {
+      "name": "React",
+      "category": "Frontend",
+      "years": 4,
+      "projects": 22,
+      "confidence": 95,
+      "color": "#61DAFB"
+    },
+    {
+      "name": "Flutter",
+      "category": "Mobile",
+      "years": 3,
+      "projects": 15,
+      "confidence": 92,
+      "color": "#02569B"
+    },
+    {
+      "name": "Dart",
+      "category": "Mobile",
+      "years": 3,
+      "projects": 15,
+      "confidence": 90,
+      "color": "#0175C2"
+    },
+    {
+      "name": "TypeScript",
+      "category": "Frontend",
+      "years": 3,
+      "projects": 18,
+      "confidence": 92,
+      "color": "#3178C6"
+    },
+    {
+      "name": "JavaScript",
+      "category": "Frontend",
+      "years": 4,
+      "projects": 25,
+      "confidence": 95,
+      "color": "#F7DF1E"
+    },
+    {
+      "name": "Node.js",
+      "category": "Backend",
+      "years": 3,
+      "projects": 14,
+      "confidence": 88,
+      "color": "#339933"
+    },
+    {
+      "name": "Supabase",
+      "category": "Backend",
+      "years": 2,
+      "projects": 10,
+      "confidence": 85,
+      "color": "#3ECF8E"
+    },
+    {
+      "name": "Firebase",
+      "category": "Backend",
+      "years": 3,
+      "projects": 12,
+      "confidence": 88,
+      "color": "#FFCA28"
+    },
+    {
+      "name": "MySQL",
+      "category": "Backend",
+      "years": 3,
+      "projects": 11,
+      "confidence": 82,
+      "color": "#4479A1"
+    },
+    {
+      "name": "PHP",
+      "category": "Backend",
+      "years": 3,
+      "projects": 9,
+      "confidence": 80,
+      "color": "#777BB4"
+    },
+    {
+      "name": "HTML5",
+      "category": "Frontend",
+      "years": 5,
+      "projects": 30,
+      "confidence": 98,
+      "color": "#E34F26"
+    },
+    {
+      "name": "CSS3",
+      "category": "Frontend",
+      "years": 5,
+      "projects": 30,
+      "confidence": 95,
+      "color": "#1572B6"
+    },
+    {
+      "name": "Tailwind CSS",
+      "category": "Frontend",
+      "years": 3,
+      "projects": 20,
+      "confidence": 96,
+      "color": "#06B6D4"
+    },
+    {
+      "name": "GSAP",
+      "category": "Frontend",
+      "years": 2,
+      "projects": 8,
+      "confidence": 85,
+      "color": "#88CE02"
+    },
+    {
+      "name": "Framer Motion",
+      "category": "Frontend",
+      "years": 2,
+      "projects": 12,
+      "confidence": 90,
+      "color": "#0055FF"
+    },
+    {
+      "name": "WordPress",
+      "category": "Frontend",
+      "years": 3,
+      "projects": 14,
+      "confidence": 85,
+      "color": "#21759B"
+    },
+    {
+      "name": "Git",
+      "category": "DevOps",
+      "years": 4,
+      "projects": 28,
+      "confidence": 92,
+      "color": "#F05032"
+    },
+    {
+      "name": "GitHub",
+      "category": "DevOps",
+      "years": 4,
+      "projects": 28,
+      "confidence": 94,
+      "color": "#FFFFFF"
+    },
+    {
+      "name": "Cloudflare",
+      "category": "DevOps",
+      "years": 2,
+      "projects": 8,
+      "confidence": 82,
+      "color": "#F38020"
+    },
+    {
+      "name": "Figma",
+      "category": "Design",
+      "years": 0,
+      "projects": 26,
+      "confidence": 60,
+      "color": "#F24E1E"
+    },
+    {
+      "name": "Photoshop",
+      "category": "Design",
+      "years": 4,
+      "projects": 20,
+      "confidence": 88,
+      "color": "#31A8FF"
+    },
+    {
+      "name": "After Effects",
+      "category": "Design",
+      "years": 2,
+      "projects": 8,
+      "confidence": 80,
+      "color": "#9999FF"
+    },
+    {
+      "name": "Premiere Pro",
+      "category": "Design",
+      "years": 3,
+      "projects": 12,
+      "confidence": 82,
+      "color": "#9999FF"
+    },
+    {
+      "name": "Lightroom",
+      "category": "Design",
+      "years": 3,
+      "projects": 15,
+      "confidence": 85,
+      "color": "#31A8FF"
+    },
+    {
+      "name": "Canva",
+      "category": "Design",
+      "years": 4,
+      "projects": 30,
+      "confidence": 95,
+      "color": "#00C4CC"
+    },
+    {
+      "name": "Android Studio",
+      "category": "Mobile",
+      "years": 1,
+      "projects": 14,
+      "confidence": 88,
+      "color": "#3DDC84"
+    },
+    {
+      "name": "VS Code",
+      "category": "DevOps",
+      "years": 5,
+      "projects": 35,
+      "confidence": 98,
+      "color": "#007ACC"
+    },
+    {
+      "name": "Windows",
+      "category": "Security",
+      "years": 5,
+      "projects": 40,
+      "confidence": 98,
+      "color": "#0078D6"
+    }
+  ],
+  "workspaceTools": [
+    "VS Code",
+    "Android Studio",
+    "GitHub",
+    "Chrome",
+    "Figma",
+    "Photoshop",
+    "Illustrator",
+    "Premiere",
+    "After Effects",
+    "CapCut",
+    "Docker",
+    "Postman",
+    "Supabase",
+    "Cloudflare",
+    "Cursor",
+    "Claude",
+    "ChatGPT",
+    "Gemini"
+  ],
+  "projectsData": [
+    {
+      "id": 1,
+      "title": "ZetaSports",
+      "subtitle": "Live Sports Streaming Platform",
+      "tech": [
+        "Flutter",
+        "Supabase",
+        "Cloudflare",
+        "HLS",
+        "JW Player"
+      ],
+      "desc": "A next-generation sports streaming ecosystem delivering real-time HD match streams, dynamic ads, and live score telemetry.",
+      "highlight": "High-Scale Streaming"
+    },
+    {
+      "id": 2,
+      "title": "ZARC ADS",
+      "subtitle": "Smart TV Advertisement System",
+      "tech": [
+        "Flutter",
+        "Android TV",
+        "Supabase",
+        "Offline Cache"
+      ],
+      "desc": "Autonomous Smart TV ad dispatch software featuring scheduled video ad campaigns, offline media buffering, and analytical telemetry.",
+      "highlight": "Smart TV OS"
+    },
+    {
+      "id": 3,
+      "title": "BOCA CHICKEN",
+      "subtitle": "Restaurant Branding & Digital Suite",
+      "tech": [
+        "Branding",
+        "Marketing",
+        "Website",
+        "Motion Graphics"
+      ],
+      "desc": "Comprehensive brand identity, custom website, interactive digital menus, and promotional video motion graphics.",
+      "highlight": "Brand Identity"
+    },
+    {
+      "id": 4,
+      "title": "Restaurant Finance",
+      "subtitle": "Tally-inspired Accounting Software",
+      "tech": [
+        "PHP",
+        "MySQL",
+        "Desktop App",
+        "Financial Analytics"
+      ],
+      "desc": "Dedicated desktop financial accounting software engineered for multi-branch restaurant chains with inventory and ledger tracking.",
+      "highlight": "Desktop Software"
+    }
+  ]
+}
