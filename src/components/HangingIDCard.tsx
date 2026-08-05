@@ -204,10 +204,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
       <div 
         className="absolute bg-black/80 rounded-[10px] pointer-events-none filter blur-[15px] transition-all duration-300"
         style={{
-          width: '100px',
-          height: '142px',
+          width: '75px',
+          height: '130px',
           top: '64px',
-          left: '10px',
+          left: '22px',
           opacity: 0.18,
           transform: `translate3d(${shadowX}px, ${shadowY}px, -20px) scale(${isHovered ? 1.02 : 1})`,
           zIndex: 0
@@ -220,7 +220,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseMove={handleMouseMoveCard}
         onMouseLeave={handleMouseLeaveCard}
-        className="relative cursor-pointer transition-all duration-300 pointer-events-auto rounded-[10px] overflow-hidden bg-black border border-white/15"
+        className="relative cursor-pointer transition-all duration-300 pointer-events-auto mix-blend-screen"
         style={{
           width: '100px',
           height: '142px',
@@ -228,8 +228,8 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
           transform: `perspective(500px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${isHovered ? 1.05 : 1})`,
           transformStyle: 'preserve-3d',
           boxShadow: isHovered 
-            ? '0 0 20px rgba(77, 163, 255, 0.25), inset 0 0 10px rgba(77, 163, 255, 0.15)' 
-            : '0 4px 12px rgba(0, 0, 0, 0.5)',
+            ? '0 0 20px rgba(77, 163, 255, 0.25)' 
+            : 'none',
           filter: isHovered ? 'brightness(1.06)' : 'brightness(1.0)',
           willChange: 'transform, filter',
           zIndex: 1
