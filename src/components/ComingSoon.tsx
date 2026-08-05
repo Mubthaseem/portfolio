@@ -212,10 +212,8 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
     { id: 'contact', label: 'CONTACT' },
   ];
 
-  // Scrubber opacity: active everywhere, smoothly fades out near Contact section
-  const scrubberOpacity = scrollProgress >= 0.92
-    ? Math.max(0, 1 - (scrollProgress - 0.92) / 0.08)
-    : 1;
+  // Scrubber opacity: stays active and fully visible at all times
+  const scrubberOpacity = 1;
 
   return (
     <motion.div
@@ -239,7 +237,7 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
       <AvatarUnifiedScrubber
         scrollProgress={scrollProgress}
         opacity={scrubberOpacity}
-        className="z-20 mix-blend-screen"
+        className="z-20"
       />
 
       {/* FIXED TOP HEADER & NAVIGATION OS BAR */}
