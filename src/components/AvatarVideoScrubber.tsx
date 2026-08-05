@@ -83,7 +83,7 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
       style={{ opacity: videoLoaded ? opacity : 0 }}
     >
       <div 
-        className="w-full h-full relative flex items-center justify-center mix-blend-screen"
+        className="w-full h-full relative flex items-center justify-center"
         style={{
           WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
           maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)'
@@ -91,15 +91,18 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
       >
         <video
           ref={videoRef}
-          src="/avatar_clean.mp4"
           muted
           playsInline
           preload="auto"
           className="w-full h-full object-cover object-top"
           style={{
-            display: 'block'
+            display: 'block',
+            backgroundColor: 'transparent'
           }}
-        />
+        >
+          <source src="/avatar.webm" type="video/webm" />
+          <source src="/avatar_clean.mp4" type="video/mp4" />
+        </video>
       </div>
     </div>
   );
