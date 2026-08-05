@@ -216,29 +216,30 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
   const scrubberOpacity = 1;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 1.5, ease: 'easeInOut' }}
-      className="fixed inset-0 w-screen h-screen bg-transparent z-10 overflow-hidden select-none"
-    >
-      {/* STATIC PORTRAIT (TURNED OFF — UNCOMMENT WHENEVER NEEDED) */}
-      {/* 
-      <div className="fixed inset-0 w-full h-full z-10 pointer-events-none md:pointer-events-auto">
-        <PortraitReveal 
-          scrollProgress={scrollProgress} 
-          isFrozen={isFrozen}
-          opacity={portraitOpacity}
-        />
-      </div>
-      */}
-
+    <>
       {/* UNIFIED AVATAR SCRUBBER — Hardware GPU video seeking on mobile phones (15MB RAM), GIF canvas on desktop */}
       <AvatarUnifiedScrubber
         scrollProgress={scrollProgress}
         opacity={scrubberOpacity}
-        className="z-20"
+        className="z-5 mix-blend-screen"
       />
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.5, ease: 'easeInOut' }}
+        className="fixed inset-0 w-screen h-screen bg-transparent z-10 overflow-hidden select-none"
+      >
+        {/* STATIC PORTRAIT (TURNED OFF — UNCOMMENT WHENEVER NEEDED) */}
+        {/* 
+        <div className="fixed inset-0 w-full h-full z-10 pointer-events-none md:pointer-events-auto">
+          <PortraitReveal 
+            scrollProgress={scrollProgress} 
+            isFrozen={isFrozen}
+            opacity={portraitOpacity}
+          />
+        </div>
+        */}
 
       {/* FIXED TOP HEADER & NAVIGATION OS BAR */}
       <div className="fixed top-0 left-0 w-full z-40 p-3 sm:p-6 md:p-10 flex flex-col sm:flex-row gap-2 sm:gap-0 justify-between items-start sm:items-center pointer-events-none bg-gradient-to-b from-black/90 via-black/40 to-transparent">
@@ -925,5 +926,6 @@ export default function ComingSoon({ isVisible }: ComingSoonProps) {
         )}
       </AnimatePresence>
     </motion.div>
+    </>
   );
 }

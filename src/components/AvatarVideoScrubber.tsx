@@ -10,9 +10,17 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
   const videoRef = useRef<HTMLVideoElement>(null);
   const targetTimeRef = useRef(0);
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
-  // Fallback duration
   const DURATION = 10.0;
+
+  // Detect iOS / Safari on mount to avoid loading WebM with unsupported alpha (which iOS renders as solid white)
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    const isApple = /iphone|ipad|ipod|macintosh/.test(ua) && ('ontouchend' in document || navigator.maxTouchPoints > 0);
+    const isSafari = ua.includes('safari') && !ua.includes('chrome') && !ua.includes('android');
+    setIsIOS(isApple || isSafari);
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -68,7 +76,7 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       }
     };
-  }, []);
+  }, [isIOS]); // Re-run when detection completes
 
   // Sync scrollProgress to target time
   useEffect(() => {
@@ -91,6 +99,7 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
       >
         <video
           ref={videoRef}
+          key={isIOS ? "ios-video" : "webm-video"}
           muted
           playsInline
           preload="auto"
@@ -100,8 +109,14 @@ export default function AvatarVideoScrubber({ scrollProgress, opacity = 1, class
             backgroundColor: 'transparent'
           }}
         >
-          <source src="/avatar.webm" type="video/webm" />
-          <source src="/avatar_clean.mp4" type="video/mp4" />
+          {isIOS ? (
+            <source src="/avatar_clean.mp4" type="video/mp4" />
+          ) : (
+            <>
+              <source src="/avatar.webm" type="video/webm" />
+              <source src="/avatar_clean.mp4" type="video/mp4" />
+            </>
+          )}
         </video>
       </div>
     </div>
