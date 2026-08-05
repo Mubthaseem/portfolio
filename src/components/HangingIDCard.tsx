@@ -30,6 +30,9 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const prevMouseX = useRef<number | null>(null);
   const prevScrollY = useRef(0);
 
+  // L = 136px is the pendulum radius from the top window anchor to the center of the card
+  const PENDULUM_RADIUS = 136;
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -59,14 +62,19 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
       const idleAngle = Math.sin(time * (Math.PI / 2)) * 1.8;
 
       if (isDragging.current) {
-        // B1. If dragging via touch, target angle follows drag offset directly
-        const targetDragAngle = Math.atan2(dragX.current, 75) * (180 / Math.PI);
-        const clampedDragAngle = Math.min(45, Math.max(-45, targetDragAngle));
+        // B1. Dragging: Card sways horizontally following the finger displacement
+        // Clamp drag offset to prevent rotating the card past 58 degrees
+        const maxDragOffset = PENDULUM_RADIUS * Math.sin(58 * Math.PI / 180);
+        const clampedDragX = Math.min(maxDragOffset, Math.max(-maxDragOffset, dragX.current));
         
-        swingAngle.current += (clampedDragAngle - swingAngle.current) * 0.25;
-        swingVelocity.current = 0; 
+        // Convert the horizontal displacement to rotation angle: theta = asin(x / L)
+        const targetDragAngle = Math.asin(clampedDragX / PENDULUM_RADIUS) * (180 / Math.PI);
+        
+        // Easing factor to interpolate rotation smoothly
+        swingAngle.current += (targetDragAngle - swingAngle.current) * 0.25;
+        swingVelocity.current = 0; // reset velocity during active drag
       } else {
-        // B2. If released, use spring solver physics
+        // B2. Spring solver physics
         const stiffness = 0.08;
         const damping = 0.92;
 
@@ -82,13 +90,9 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         swingAngle.current += swingVelocity.current;
       }
 
-      // Apply the physics transform to the container (pivoted from the top anchor point)
+      // Apply the swing rotation centered on the top edge anchor point (transformOrigin: 50% 0%)
       if (container) {
-        const swingRad = (swingAngle.current * Math.PI) / 180;
-        const liftY = (1 - Math.cos(swingRad)) * 60; // Lift card slightly when swinging high
-        const shiftX = Math.sin(swingRad) * 45;      // Pendulum x displacement
-        
-        container.style.transform = `translate3d(${shiftX}px, ${liftY}px, 0) rotate(${swingAngle.current}deg)`;
+        container.style.transform = `rotate(${swingAngle.current}deg)`;
       }
 
       animationFrameId = requestAnimationFrame(updatePhysics);
@@ -165,7 +169,12 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.touches[0];
     isDragging.current = true;
-    touchStartX.current = touch.clientX - dragX.current;
+    
+    // Initialize starting offset from the current angle position to prevent visual jump/snap
+    const initialDragX = PENDULUM_RADIUS * Math.sin(swingAngle.current * Math.PI / 180);
+    touchStartX.current = touch.clientX - initialDragX;
+    
+    dragX.current = initialDragX;
     lastTouchX.current = touch.clientX;
     lastTouchTime.current = performance.now();
     dragVelocity.current = 0;
@@ -190,15 +199,24 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    swingVelocity.current = dragVelocity.current * 12.0;
-    swingVelocity.current = Math.min(10, Math.max(-10, swingVelocity.current));
+    // Convert finger swipe speed to angular velocity: omega = v / L
+    // Then convert to degree-based velocity for the spring solver
+    const angularSpeedRad = dragVelocity.current / PENDULUM_RADIUS;
+    const angularSpeedDeg = angularSpeedRad * (180 / Math.PI);
+    
+    // Apply swing velocity (multiplied by a tuning factor for physical feel)
+    swingVelocity.current = angularSpeedDeg * 15.0;
+    
+    // Clamp the initial velocity to prevent excessive spinning loops
+    swingVelocity.current = Math.min(12, Math.max(-12, swingVelocity.current));
+
     dragX.current = 0;
   };
 
   return (
     <div 
       ref={containerRef}
-      className="fixed top-0 z-40 flex flex-col items-center select-none will-change-transform"
+      className="fixed top-0 z-40 flex flex-col items-center select-none will-change-transform animate-fade-in"
       style={{ 
         left: `${leftOffset}px`,
         transformOrigin: '50% 0%',
