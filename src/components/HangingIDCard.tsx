@@ -19,6 +19,14 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
   const mouseForce = useRef(0);
   const scrollForce = useRef(0);
   
+  // Touch dragging refs for mobile (horizontal swing drag)
+  const isDragging = useRef(false);
+  const touchStartX = useRef(0);
+  const dragX = useRef(0);
+  const lastTouchX = useRef(0);
+  const lastTouchTime = useRef(0);
+  const dragVelocity = useRef(0);
+
   // Previous states for delta tracking
   const prevMouseX = useRef<number | null>(null);
   const prevScrollY = useRef(0);
@@ -36,7 +44,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         duration: 1.8, 
         ease: "elastic.out(1.1, 0.55)",
         onComplete: () => {
-          // Initialize prevScrollY to prevent massive jump on load
           prevScrollY.current = window.scrollY;
         }
       }
@@ -49,29 +56,38 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const updatePhysics = () => {
       time += 0.015;
 
-      // A. Constant tiny idle pendulum movement (-2deg to 2deg, 4s cycle)
-      // We use Math.sin to oscillate smoothly
+      // A. Constant tiny idle pendulum movement (-1.8deg to 1.8deg, 4s cycle)
       const idleAngle = Math.sin(time * (Math.PI / 2)) * 1.8;
 
-      // B. Spring solver parameters
-      const stiffness = 0.08;
-      const damping = 0.92;
+      if (isDragging.current) {
+        // B1. If dragging via touch, target angle follows drag offset directly
+        // Pendulum angle is calculated using atan2(x, L) where L=75px is the pivot length
+        const targetDragAngle = Math.atan2(dragX.current, 75) * (180 / Math.PI);
+        // Clamp drag angle to prevent wrapping around the top anchor (max 45deg)
+        const clampedDragAngle = Math.min(45, Math.max(-45, targetDragAngle));
+        
+        // Smoothly ease the swing angle toward the finger position
+        swingAngle.current += (clampedDragAngle - swingAngle.current) * 0.25;
+        swingVelocity.current = 0; // reset physics velocity while dragging
+      } else {
+        // B2. If released, use spring solver physics
+        const stiffness = 0.08;
+        const damping = 0.92;
 
-      // Decay the interactive forces over time
-      mouseForce.current *= 0.92;
-      scrollForce.current *= 0.90;
+        // Decay interactive forces
+        mouseForce.current *= 0.92;
+        scrollForce.current *= 0.90;
 
-      // Target angle combines idle swing + scroll force + mouse momentum force
-      const targetAngle = idleAngle + mouseForce.current + scrollForce.current;
+        const targetAngle = idleAngle + mouseForce.current + scrollForce.current;
 
-      // Spring physics equation (Verlet-style)
-      const acceleration = (targetAngle - swingAngle.current) * stiffness;
-      swingVelocity.current = (swingVelocity.current + acceleration) * damping;
-      swingAngle.current += swingVelocity.current;
+        // Spring physics solver (Verlet-style)
+        const acceleration = (targetAngle - swingAngle.current) * stiffness;
+        swingVelocity.current = (swingVelocity.current + acceleration) * damping;
+        swingAngle.current += swingVelocity.current;
+      }
 
       // Apply the physics transform to the container (pivoted from the top anchor point)
       if (container) {
-        // Also add a tiny vertical lift (y) and shift (x) matching the swing angle for real physical motion
         const swingRad = (swingAngle.current * Math.PI) / 180;
         const liftY = (1 - Math.cos(swingRad)) * 60; // Lift card slightly when swinging high
         const shiftX = Math.sin(swingRad) * 45;      // Pendulum x displacement
@@ -88,9 +104,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     const handleMouseMoveGlobal = (e: MouseEvent) => {
       if (prevMouseX.current !== null) {
         const deltaX = e.clientX - prevMouseX.current;
-        // Move opposite to cursor direction, scaled appropriately
         mouseForce.current -= deltaX * 0.12;
-        // Clamp to prevent wild spinning
         mouseForce.current = Math.min(15, Math.max(-15, mouseForce.current));
       }
       prevMouseX.current = e.clientX;
@@ -103,7 +117,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
       const deltaY = currentScroll - prevScrollY.current;
 
       if (Math.abs(deltaY) > 0.5) {
-        // Swing up (max 5deg, max 8px movement translated through forces)
         const direction = deltaY > 0 ? 1 : -1;
         scrollForce.current += direction * Math.min(6, Math.abs(deltaY) * 0.08);
         scrollForce.current = Math.min(8, Math.max(-8, scrollForce.current));
@@ -112,8 +125,8 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     };
 
     window.addEventListener('mousemove', handleMouseMoveGlobal);
-    // Listen to scroll events on both window and custom scroll pane
     window.addEventListener('scroll', handleScrollGlobal);
+    
     const pane = document.querySelector('.scroll-pane');
     if (pane) {
       pane.addEventListener('scroll', handleScrollGlobal, { passive: true });
@@ -129,26 +142,23 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     };
   }, []);
 
-  // 5. 3D Hover Tilt & Glare position calculations
+  // 5. 3D Hover Tilt & Glare position calculations (Desktops)
   const handleMouseMoveCard = (e: React.MouseEvent<HTMLDivElement>) => {
     const card = cardRef.current;
     if (!card) return;
 
     const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left; // Mouse x position relative to card
-    const y = e.clientY - rect.top;  // Mouse y position relative to card
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
-    // Convert to normalized coordinates (-0.5 to 0.5)
     const px = x / rect.width - 0.5;
     const py = y / rect.height - 0.5;
 
-    // Apply tilt (max rotateX: 3deg, max rotateY: 4deg)
     setTilt({
-      x: -py * 6, // Tilt up/down
-      y: px * 8   // Tilt left/right
+      x: -py * 6,
+      y: px * 8
     });
 
-    // Map glare position (for reflection)
     setGlarePos({
       x: (x / rect.width) * 100,
       y: (y / rect.height) * 100
@@ -160,7 +170,48 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
     setTilt({ x: 0, y: 0 });
   };
 
-  // Render the shadow offset opposite to the swing angle for extra realism
+  // 6. Touch Drag Event Handlers for Mobile (X-direction swing)
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    isDragging.current = true;
+    touchStartX.current = touch.clientX - dragX.current;
+    lastTouchX.current = touch.clientX;
+    lastTouchTime.current = performance.now();
+    dragVelocity.current = 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging.current) return;
+    const touch = e.touches[0];
+    const now = performance.now();
+    const dt = now - lastTouchTime.current;
+
+    // Calculate instantaneous velocity to transfer on release
+    if (dt > 0) {
+      dragVelocity.current = (touch.clientX - lastTouchX.current) / dt;
+    }
+
+    // Update drag horizontal displacement
+    dragX.current = touch.clientX - touchStartX.current;
+    lastTouchX.current = touch.clientX;
+    lastTouchTime.current = now;
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    // Convert release drag velocity to pendulum swing velocity
+    // Multiply by a factor to match the physics velocity scale
+    swingVelocity.current = dragVelocity.current * 12.0;
+    
+    // Clamp the initial release velocity to prevent wild rotation loops
+    swingVelocity.current = Math.min(10, Math.max(-10, swingVelocity.current));
+
+    // Reset drag offsets
+    dragX.current = 0;
+  };
+
   const shadowX = -Math.sin((swingAngle.current * Math.PI) / 180) * 18;
   const shadowY = 12 + Math.abs(swingAngle.current) * 0.5;
 
@@ -170,13 +221,12 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
       className="fixed top-0 z-40 flex flex-col items-center select-none will-change-transform"
       style={{ 
         left: `${leftOffset}px`,
-        transformOrigin: '50% 0%', // Pivot from the top edge anchors
+        transformOrigin: '50% 0%',
         width: '120px'
       }}
     >
-      {/* A. Suspended Cords System (SVG Bezier Curves for organic tension) */}
+      {/* A. Suspended Cords System */}
       <svg width="120" height="55" className="overflow-visible pointer-events-none">
-        {/* Left Cord */}
         <path 
           d="M 45,0 Q 47,28 52,55" 
           stroke="#3d3d3d" 
@@ -184,7 +234,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
           fill="none" 
           strokeLinecap="round"
         />
-        {/* Right Cord */}
         <path 
           d="M 75,0 Q 73,28 68,55" 
           stroke="#3d3d3d" 
@@ -200,7 +249,7 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         style={{ marginTop: '-2px', zIndex: 2 }}
       />
 
-      {/* C. Interactive Card Shadow (separated for realistic parallax movement) */}
+      {/* C. Interactive Card Shadow */}
       <div 
         className="absolute bg-black/80 rounded-[10px] pointer-events-none filter blur-[15px] transition-all duration-300"
         style={{
@@ -220,7 +269,10 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseMove={handleMouseMoveCard}
         onMouseLeave={handleMouseLeaveCard}
-        className="relative cursor-pointer transition-all duration-300 pointer-events-auto mix-blend-screen"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="relative cursor-pointer transition-all duration-300 pointer-events-auto mix-blend-screen touch-none"
         style={{
           width: '100px',
           height: '142px',
@@ -243,8 +295,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         />
 
         {/* E. Laminated Plastic Reflection / Glare Effects */}
-        
-        {/* Interactive hover glare spotlight */}
         {isHovered && (
           <div 
             className="absolute inset-0 pointer-events-none mix-blend-overlay"
@@ -254,7 +304,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
           />
         )}
 
-        {/* Ambient sweep reflection (travels across surface every 9 seconds) */}
         <div 
           className="absolute inset-0 pointer-events-none mix-blend-overlay animate-glare-sweep"
           style={{
@@ -272,7 +321,6 @@ export default function HangingIDCard({ leftOffset = 40 }: HangingIDCardProps) {
         />
       </div>
 
-      {/* Styled animation keyframes for the glare sweep */}
       <style>{`
         @keyframes glareSweep {
           0% { background-position: -150% 0; }
